@@ -1,0 +1,15 @@
+{
+  "name": "codecoach",
+  "private": true,
+  "description": "A virtual FRC software mentor that coaches rather than does.",
+  "license": "BSD-3-Clause",
+  "type": "module",
+  "packageManager": "pnpm@12.9.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "doctor": "node scripts/doctor.mjs",
+    "test:scripts": "node --test \"scripts/test/*.test.mjs\""
+  }
+}

@@ -1,0 +1,33 @@
+# Node / build output
+node_modules/
+dist/
+out/
+*.tsbuildinfo
+.turbo/
+coverage/
+
+# VS Code extension packaging and tests
+apps/vscode/*.vsix
+.vscode-test/
+
+# Fixture build output (Gradle, RobotPy)
+fixtures/**/build/
+fixtures/**/.gradle/
+fixtures/**/.venv/
+fixtures/**/__pycache__/
+
+# Eval transcripts: may contain fixture code and cost money to regenerate
+packages/evals/runs/
+
+# Secrets
+.env*
+*.pem
+*.key
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json

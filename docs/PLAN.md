@@ -191,7 +191,7 @@ describe → hypothesize → design experiment → observe (tools/logs) → refi
    - **Pins:** `.node-version` (22), `engines.node >=22`, and `"packageManager": "pnpm@12.9.0"` via corepack.
    - **Commands** are plain pnpm scripts, with Node `.mjs` helpers for anything multi-step (no `just`, `make` or bash), so Windows works without WSL.
    - **No native addons:** WASM tree-sitter, `SecretStorage` / `safeStorage`, and pure-TypeScript parsers.
-   - **External tools** (JDK 17/25, Python + robotpy, `owlet`) are detected, not required. `pnpm doctor` reports them, and tests that need them are skipped with a clear message.
+   - **External tools** (JDK 17/25, Python + robotpy, `owlet`) are detected, not required. `pnpm run doctor` reports them, and tests that need them are skipped with a clear message.
 3. **CI:** GitHub Actions on ubuntu, windows and macos, with `setup-node` + corepack + `setup-java` (17 and 25). This matrix is the proof that the non-Nix path works.
 
 ### `.gitignore` additions
@@ -209,7 +209,7 @@ Sections:
 3. Supported ecosystems.
 4. Installing the extension.
 5. Setting up a team (keys, guardrails).
-6. Development setup (`corepack enable && pnpm install && pnpm doctor && pnpm build`).
+6. Development setup (`corepack enable && pnpm install && pnpm run doctor && pnpm build`).
 7. Roadmap and status.
 8. License.
 
@@ -218,7 +218,7 @@ The README does not mention Nix.
 ## Milestones
 | # | Milestone | Done when |
 |---|---|---|
-| [0a](stages/00a-dev-environment.md) | Dev environment: NixHub flake, toolchain pins, `pnpm doctor`, README, .gitignore, `docs/dev-setup.md` | `pnpm doctor` passes in the Nix shell and on CI's three OSes; both JDKs are detected |
+| [0a](stages/00a-dev-environment.md) | Dev environment: NixHub flake, toolchain pins, `pnpm run doctor`, README, .gitignore, `docs/dev-setup.md` | `pnpm run doctor` passes in the Nix shell and on CI's three OSes; both JDKs are detected |
 | [0b](stages/00b-scaffolding-ci.md) | Scaffolding: workspace packages, TS project refs, lint/test, fixture skeletons, CI matrix | CI is green on ubuntu, windows and macos |
 | [1](stages/01-core-and-pedagogy.md) | Core agent loop + Anthropic provider + read-only code tools + project analyzer + JDK resolver + pedagogy v1 + `codecoach` CLI + eval suite v1 | The CLI coaches a student through the default-command-bug fixture without handing over the fix; eval v1 baseline is recorded |
 | [2](stages/02-vscode-extension.md) | VS Code extension MVP: chat panel, build-error explain, team config, guardrail levels, response checker, mentor lock | A student in WPILib VS Code fixes a planted build error and a planted logic bug with the coach; L0 violation rate is 0 on the eval suite |
@@ -263,4 +263,4 @@ The README does not mention Nix.
 - **Privacy:** a network capture shows traffic only to the selected provider; the secret scanner catches seeded test secrets.
 
 ## First step after approval
-Finish 0a: the toolchain pins, `pnpm doctor`, README, `.gitignore` and `docs/dev-setup.md`. The NixHub flake is already written and verified, staged in NixHub but not committed. Then 0b scaffolds the workspace and CI.
+Finish 0a: the toolchain pins, `pnpm run doctor`, README, `.gitignore` and `docs/dev-setup.md`. The NixHub flake is already written, verified and committed in NixHub. Then 0b scaffolds the workspace and CI.

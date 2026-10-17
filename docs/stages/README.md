@@ -10,7 +10,7 @@ Task sizes: **S** ≈ under half a day, **M** ≈ 1–3 days, **L** ≈ a week o
 
 | # | Stage | Doc | Status |
 |---|---|---|---|
-| 0a | Dev environment | [00a-dev-environment.md](00a-dev-environment.md) | In progress (NixHub flake done, uncommitted) |
+| 0a | Dev environment | [00a-dev-environment.md](00a-dev-environment.md) | Done except the CI doctor job, which lands with 0b |
 | 0b | Scaffolding and CI | [00b-scaffolding-ci.md](00b-scaffolding-ci.md) | Not started |
 | 1 | Core agent, pedagogy v1, CLI, evals v1 | [01-core-and-pedagogy.md](01-core-and-pedagogy.md) | Not started |
 | 2 | VS Code extension MVP | [02-vscode-extension.md](02-vscode-extension.md) | Not started |

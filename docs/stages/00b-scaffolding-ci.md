@@ -64,7 +64,7 @@ scripts/
 | `pnpm package:vscode` | `@vscode/vsce package` → `apps/vscode/codecoach-<ver>.vsix` |
 | `pnpm fixtures [build\|test] [name]` | `scripts/fixtures.mjs` |
 | `pnpm codecoach …` | runs `apps/cli` from source (via `tsx`) |
-| `pnpm doctor` | from 0a |
+| `pnpm run doctor` | from 0a |
 
 ### 4.3 VS Code test runner on NixOS and elsewhere
 `apps/vscode/test/run.mjs` calls `runTests({ vscodeExecutablePath: process.env.CODECOACH_VSCODE_EXECUTABLE, … })`. When the variable is unset (CI, stock machines), `@vscode/test-electron` downloads VS Code as usual. On Linux CI, wrap the run in `xvfb-run -a`.
@@ -94,7 +94,7 @@ jobs:
     - corepack enable
     - actions/setup-java (distribution: temurin, java-version: |  17  25 )
     - pnpm install --frozen-lockfile
-    - pnpm doctor --json
+    - pnpm run doctor --json
     - pnpm lint && pnpm typecheck && pnpm build && pnpm test
     - pnpm test:vscode            (xvfb-run on Linux)
     - pnpm package:vscode         (upload .vsix artifact from ubuntu only)

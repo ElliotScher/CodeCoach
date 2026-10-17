@@ -4,8 +4,8 @@
 Any contributor on Linux, macOS or Windows can go from a fresh machine to a working CodeCoach dev setup with Node 22 and corepack, and nothing else is required. You also get a personal NixOS shell, kept in NixHub, that provides the same tool versions plus both robot JDKs. The repo itself contains no Nix files.
 
 **Exit criteria (from PLAN.md):**
-- `pnpm doctor` passes in the Nix shell and on CI's ubuntu, windows and macos runners.
-- `pnpm doctor` detects both JDK 17 and JDK 25 where they are installed.
+- `pnpm run doctor` passes in the Nix shell and on CI's ubuntu, windows and macos runners.
+- `pnpm run doctor` detects both JDK 17 and JDK 25 where they are installed.
 - Secret files and build output are ignored by git.
 
 ## 2. Depends on / unblocks
@@ -15,7 +15,7 @@ Any contributor on Linux, macOS or Windows can go from a fresh machine to a work
 ## 3. Deliverables
 | Path | Purpose | Status |
 |---|---|---|
-| `~/Documents/NixHub/dev/FRC/CodeCoach/flake.nix` (+ `flake.lock`) | Personal Nix dev shell (outside the repo) | **Done**: verified, staged in NixHub, not committed |
+| `~/Documents/NixHub/dev/FRC/CodeCoach/flake.nix` (+ `flake.lock`) | Personal Nix dev shell (outside the repo) | **Done**: verified and committed in NixHub (`73be872`) |
 | `.node-version` | `22`, read by nvm, fnm, volta and `actions/setup-node` | |
 | `package.json` (root, private) | `packageManager: "pnpm@12.9.0"`, `engines.node: ">=22"`, root scripts | |
 | `pnpm-workspace.yaml` | Workspace globs (`packages/*`, `apps/*`, `services/*`) | |
@@ -40,7 +40,7 @@ The flake is in place. For the record, here is what it provides and why:
   - `CODECOACH_VSCODE_EXECUTABLE`: set in the shellHook from the system `code`, so no second unfree VS Code is pulled in.
 - **shellHook:** prints the banner, runs `pnpm install` automatically if `node_modules` is missing or older than `pnpm-lock.yaml`, then lists the common commands.
 - **Checks:** `nix flake check` passes, and `nix develop` reports Node v22.23.3, pnpm 12.9.0, OpenJDK 17.0.20 and OpenJDK 25.0.4.
-- **Remaining:** commit it in NixHub (only when you ask), and run `nixos-rebuild switch` to get the `CodeCoach` alias. Add `postgresql` at stage 9.
+- **Remaining:** run `nixos-rebuild switch` to get the `CodeCoach` alias. Add `postgresql` at stage 9.
 - **Follow-up:** once 0a lands, add `node scripts/doctor.mjs --quiet` to the shellHook, matching Micnote's pattern.
 
 ### 4.2 Toolchain pins
@@ -60,8 +60,10 @@ The flake is in place. For the record, here is what it provides and why:
 - **Single source:** these pins live only here and in `.node-version`. If the pins change, the NixHub flake follows them, never the other way round.
 - **Contributor setup:** `corepack enable` gives the exact pnpm version on every OS. There is no global pnpm install.
 
-### 4.3 `pnpm doctor`
-`pnpm doctor` is a single Node script with no dependencies, so it runs *before* `pnpm install`. It prints a table of tool, required version, found version and status (OK / MISSING / OLD / OPTIONAL), and exits non-zero only if a **required** tool fails.
+### 4.3 `pnpm run doctor`
+It has to be `pnpm run doctor`, not `pnpm doctor`: pnpm 12 has a built-in `doctor` command that takes precedence over the script.
+
+`pnpm run doctor` is a single Node script with no dependencies, so it runs *before* `pnpm install`. It prints a table of tool, required version, found version and status (OK / MISSING / OLD / OPTIONAL), and exits non-zero only if a **required** tool fails.
 
 | Check | Required? | How |
 |---|---|---|
@@ -70,9 +72,9 @@ The flake is in place. For the record, here is what it provides and why:
 | git | yes | `git --version` |
 | JDK 17 | optional (needed for roboRIO fixture tests) | JDK probe (§4.4) |
 | JDK 25 | optional (needed for SystemCore fixture tests) | JDK probe |
-| Python ≥ 3.12 + venv | optional (RobotPy fixtures) | `python3`/`py -3` `--version`, `-m venv --help` (*verify* the min Python version robotpy needs for the current season) |
+| Python ≥ 3.10 + venv | optional (RobotPy fixtures) | `python3`/`py -3` `--version`, `-m venv --help` (verified: RobotPy 2026 supports Python 3.10–3.14; re-check each season) |
 | VS Code | optional (extension tests) | `CODECOACH_VSCODE_EXECUTABLE`, then `code` on PATH |
-| CTRE owlet | optional (hoot logs) | `owlet --version` on PATH (*verify* the CLI name and flags) |
+| CTRE owlet | optional (hoot logs) | `owlet --help` on PATH (verified: CTRE documents `--help` and `-f wpilog <in> <out>`, but no `--version`) |
 | Provider keys | info only | reports which of `ANTHROPIC_API_KEY`/`OPENAI_API_KEY`/`GEMINI_API_KEY` are **set**, never their values |
 
 Flags:
@@ -93,7 +95,7 @@ This is the same lookup order that stage 1's resolver will use, kept dependency-
 Each candidate's major version is read from `<home>/release` (`JAVA_VERSION="25.0.4"`), falling back to `java -version` output. Doctor reports *which* source satisfied each version, which is useful when a student's VS Code picks the wrong one.
 
 ### 4.5 `docs/dev-setup.md`
-- **Per OS:** install Node 22 (nodejs.org installer, Homebrew, winget `OpenJS.NodeJS.LTS`, or fnm/nvm), run `corepack enable`, then `pnpm install && pnpm doctor`.
+- **Per OS:** install Node 22 (nodejs.org installer, Homebrew, winget `OpenJS.NodeJS.LTS`, or fnm/nvm), run `corepack enable`, then `pnpm install && pnpm run doctor`.
 - **JDKs:** the easiest route is the WPILib installer for each season (it bundles the matching JDK). Otherwise use Temurin 17 and 25, and set `JAVA_HOME_17` / `JAVA_HOME_25`.
 - **VS Code:** recommended extensions, and how to launch the Extension Development Host (filled in by 0b/2).
 - **Troubleshooting:**
@@ -108,25 +110,26 @@ The contents are as listed in PLAN.md §7. The README's development section is a
 ## 5. Task breakdown
 **NixHub (separate repo)**
 - [x] M: `dev/FRC/CodeCoach/flake.nix` + lock, verified with `nix flake check` and `nix develop`
-- [ ] S: commit in NixHub (only when asked); `nixos-rebuild switch` for the alias
-- [ ] S: add `node scripts/doctor.mjs --quiet` to the shellHook once doctor exists
+- [x] S: commit in NixHub (`73be872`)
+- [ ] S: `nixos-rebuild switch` for the alias
+- [x] S: add `node scripts/doctor.mjs --quiet` to the shellHook (edited in NixHub, not committed)
 
 **PR 1: pins and doctor**
-- [ ] S: `.node-version`, root `package.json`, `pnpm-workspace.yaml`
-- [ ] M: `scripts/doctor.mjs` + `scripts/lib/jdk-probe.mjs`
-- [ ] S: unit tests for the probe's version parsing (run with `node --test` until vitest arrives in 0b)
+- [x] S: `.node-version`, root `package.json`, `pnpm-workspace.yaml`
+- [x] M: `scripts/doctor.mjs` + `scripts/lib/jdk-probe.mjs`
+- [x] S: unit tests for the probe's version parsing (run with `node --test` until vitest arrives in 0b); `pnpm run test:scripts`
 
 **PR 2: repo hygiene and docs**
-- [ ] S: `.gitignore`, `.vscode/extensions.json`
-- [ ] M: README rewrite
-- [ ] M: `docs/dev-setup.md`
+- [x] S: `.gitignore` (plus `.idea/`, `Thumbs.db`), `.vscode/extensions.json`
+- [x] M: README rewrite
+- [x] M: `docs/dev-setup.md`
 
 **PR 3: doctor in CI** (lands with 0b's workflow)
 - [ ] S: `doctor` job on ubuntu, windows and macos with `setup-java` installing 17 and 25; asserts both are detected
 
 ## 6. Testing and verification
-- `nix develop ~/Documents/NixHub/dev/FRC/CodeCoach -c pnpm doctor` → all OK, both JDKs found via `JAVA_HOME_17`/`JAVA_HOME_25`.
-- On CI's three OSes: `corepack enable && pnpm doctor --json` → required checks OK; JDK 17 and 25 found via `JAVA_HOME_17_X64`/`JAVA_HOME_25_X64`.
+- `nix develop ~/Documents/NixHub/dev/FRC/CodeCoach -c pnpm run doctor` → all OK, both JDKs found via `JAVA_HOME_17`/`JAVA_HOME_25`.
+- On CI's three OSes: `corepack enable && pnpm run doctor --json` → required checks OK; JDK 17 and 25 found via `JAVA_HOME_17_X64`/`JAVA_HOME_25_X64`.
 - With `JAVA_HOME_25` unset in a test env, doctor reports JDK 25 as OPTIONAL-MISSING and still exits 0.
 - `git check-ignore -v node_modules/x dist/x .env fixtures/a/build/x packages/evals/runs/x` matches every path.
 - **Manual:** a fresh Windows VM goes from nothing to a passing doctor using only the README.

@@ -8,7 +8,7 @@
 //   4. `java` on PATH
 // Once jdk.ts exists, doctor imports that instead and this file goes away.
 
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -113,13 +113,10 @@ function runJava(bin, ctx) {
 }
 
 /** Runs a command and returns stdout+stderr, or "" if it can't be run. */
-function defaultExec(cmd, args) {
-  try {
-    // java prints its version to stderr; capture both streams.
-    return execFileSync(cmd, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 15000 });
-  } catch (err) {
-    return `${err.stdout ?? ""}${err.stderr ?? ""}`;
-  }
+export function defaultExec(cmd, args) {
+  // java prints its version to stderr, even on success, so keep both streams.
+  const r = spawnSync(cmd, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 15000 });
+  return `${r.stdout ?? ""}${r.stderr ?? ""}`;
 }
 
 /**

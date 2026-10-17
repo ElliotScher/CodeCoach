@@ -45,15 +45,28 @@ Not available yet. The plan:
 
 ## Development setup
 
-You need Node 22 and git. Then:
+You need Node 22 (22.12 or newer) and git. Then:
 
 ```sh
 corepack enable
 pnpm install
 pnpm run doctor
+pnpm build && pnpm test
 ```
 
 `pnpm run doctor` checks your toolchain and reports optional tools (JDK 17/25, Python, VS Code, CTRE owlet). Use `pnpm run doctor`, not `pnpm doctor`, which is a different built-in pnpm command. See [docs/dev-setup.md](docs/dev-setup.md) for per-OS instructions and troubleshooting.
+
+| Command | Does |
+|---|---|
+| `pnpm build` | Type-checks and builds every package, the CLI and the extension bundles |
+| `pnpm test` | Unit tests (Vitest) |
+| `pnpm lint` / `pnpm format` | ESLint / Prettier |
+| `pnpm typecheck` | TypeScript, including tests and apps |
+| `pnpm test:vscode` | Extension integration tests inside VS Code |
+| `pnpm dev:vscode` | Rebuild on change and open an Extension Development Host |
+| `pnpm package:vscode` | Build `apps/vscode/codecoach-<version>.vsix` |
+| `pnpm fixtures [build\|test] [name]` | Build or test the robot projects in `fixtures/` with the right JDK or Python venv |
+| `pnpm codecoach …` | Run the CLI from source |
 
 ## Roadmap and status
 
@@ -61,8 +74,8 @@ The full plan is in [docs/PLAN.md](docs/PLAN.md), with per-stage detail in [docs
 
 | Stage | What | Status |
 |---|---|---|
-| 0a | Dev environment: toolchain pins, `pnpm run doctor`, docs | In progress |
-| 0b | Workspace scaffolding and CI | Not started |
+| 0a | Dev environment: toolchain pins, `pnpm run doctor`, docs | Done |
+| 0b | Workspace scaffolding and CI | In progress |
 | 1 | Core agent, pedagogy v1, CLI, evals | Not started |
 | 2 | VS Code extension MVP | Not started |
 | 3 | OpenAI and Google providers | Not started |

@@ -1,0 +1,8 @@
+{
+  "description": "Unmodified WPILib 2027 alpha Command v2 Robot template (SystemCore).",
+  "controller": "systemcore",
+  "language": "java",
+  "jdk": 25,
+  "wpilib": "2027.0.0-alpha-7",
+  "experimental": true
+}

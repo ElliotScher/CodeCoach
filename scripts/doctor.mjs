@@ -9,15 +9,17 @@
 //   --json   machine-readable output (used by CI)
 
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
 import { findJdk } from "./lib/jdk-probe.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const IS_WINDOWS = process.platform === "win32";
 
-const MIN_NODE = 22;
+// 22.12 is the floor for vitest and commander.
+const MIN_NODE = [22, 12];
 // RobotPy 2026 supports Python 3.10-3.14 (WPILib docs, "Python Installation Guide").
 const MIN_PYTHON = [3, 10];
 const PROVIDER_KEYS = ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"];
@@ -60,15 +62,15 @@ function pinnedPnpm() {
 
 function checkNode() {
   const found = process.versions.node;
-  const ok = Number(found.split(".")[0]) >= MIN_NODE;
+  const ok = versionAtLeast(found.split(".").map(Number), MIN_NODE);
   return {
     id: "node",
     name: "Node.js",
     required: true,
-    wanted: `>=${MIN_NODE}`,
+    wanted: `>=${MIN_NODE.join(".")}`,
     found,
     status: ok ? "OK" : "OLD",
-    details: ok ? "" : `install Node ${MIN_NODE} (see docs/dev-setup.md)`,
+    details: ok ? "" : `install Node ${MIN_NODE.join(".")} or newer (see docs/dev-setup.md)`,
   };
 }
 
@@ -90,7 +92,7 @@ function checkPnpm() {
 
 function checkGit() {
   const r = run("git", ["--version"]);
-  const found = r.ok ? /git version (\S+)/.exec(r.out)?.[1] ?? firstLine(r.out) : null;
+  const found = r.ok ? (/git version (\S+)/.exec(r.out)?.[1] ?? firstLine(r.out)) : null;
   return {
     id: "git",
     name: "git",
@@ -131,8 +133,15 @@ function checkJdk(major, purpose) {
 
 function checkPython() {
   const candidates = IS_WINDOWS
-    ? [["py", ["-3"]], ["python", []], ["python3", []]]
-    : [["python3", []], ["python", []]];
+    ? [
+        ["py", ["-3"]],
+        ["python", []],
+        ["python3", []],
+      ]
+    : [
+        ["python3", []],
+        ["python", []],
+      ];
   let best = null;
   for (const [cmd, pre] of candidates) {
     const r = run(cmd, [...pre, "--version"]);
@@ -159,19 +168,63 @@ function checkPython() {
   return { ...base, found: best.version, status: "OK", details: best.cmd };
 }
 
+/**
+ * Version of a VS Code install, read from resources/app/package.json next to
+ * the executable (Linux/Windows) or under Contents/Resources (macOS).
+ */
+function vsCodeVersionFromInstall(executable) {
+  const dir = path.dirname(executable);
+  for (const pkg of [
+    path.join(dir, "resources", "app", "package.json"),
+    path.join(dir, "..", "Resources", "app", "package.json"),
+  ]) {
+    try {
+      return JSON.parse(readFileSync(pkg, "utf8")).version ?? null;
+    } catch {
+      // Not this layout; try the next one.
+    }
+  }
+  return null;
+}
+
 function checkVsCode() {
+  const base = { id: "vscode", name: "VS Code", required: false, wanted: "any" };
   const override = process.env.CODECOACH_VSCODE_EXECUTABLE;
-  const [cmd, source] = override ? [override, "CODECOACH_VSCODE_EXECUTABLE"] : ["code", "code on PATH"];
-  const r = run(cmd, ["--version"], { shell: IS_WINDOWS && !override });
+  if (override) {
+    // This must be VS Code's Electron binary, which @vscode/test-electron
+    // launches directly. Never run it here: `--version` on the Electron
+    // binary opens a full VS Code window instead of printing and exiting.
+    if (!existsSync(override)) {
+      return {
+        ...base,
+        found: null,
+        status: "OPTIONAL",
+        details: `CODECOACH_VSCODE_EXECUTABLE does not exist: ${override}`,
+      };
+    }
+    if (readFileSync(override).subarray(0, 2).toString() === "#!") {
+      return {
+        ...base,
+        found: null,
+        status: "OPTIONAL",
+        details: `CODECOACH_VSCODE_EXECUTABLE is the \`code\` CLI launcher script (${override}); point it at VS Code's Electron binary`,
+      };
+    }
+    return {
+      ...base,
+      found: vsCodeVersionFromInstall(override) ?? "unknown version",
+      status: "OK",
+      details: "CODECOACH_VSCODE_EXECUTABLE",
+    };
+  }
+  // `code` on PATH is the CLI launcher, for which `--version` prints and exits.
+  const r = run("code", ["--version"], { shell: IS_WINDOWS });
   const found = r.ok ? firstLine(r.out) : null;
   return {
-    id: "vscode",
-    name: "VS Code",
-    required: false,
-    wanted: "any",
+    ...base,
     found,
     status: found ? "OK" : "OPTIONAL",
-    details: found ? source : "not found; needed for extension tests",
+    details: found ? "code on PATH" : "not found; needed for extension tests",
   };
 }
 
@@ -232,7 +285,14 @@ function printTable(checks, { quiet }) {
   if (rows.length === 0) return;
 
   const header = ["Tool", "Required", "Wanted", "Found", "Status", "Details"];
-  const cells = rows.map((c) => [c.name, c.required ? "yes" : "no", c.wanted ?? "", c.found ?? "-", c.status, c.details]);
+  const cells = rows.map((c) => [
+    c.name,
+    c.required ? "yes" : "no",
+    c.wanted ?? "",
+    c.found ?? "-",
+    c.status,
+    c.details,
+  ]);
   const widths = header.slice(0, -1).map((h, i) => Math.max(h.length, ...cells.map((r) => String(r[i]).length)));
   const fmt = (r, color) =>
     r

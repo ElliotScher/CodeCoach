@@ -1,0 +1,21 @@
+{
+  "name": "@codecoach/pedagogy",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Prompt layers, guardrail engine, response checker, debugging state machine",
+  "license": "BSD-3-Clause",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@codecoach/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@codecoach/core": "workspace:*"
+  }
+}

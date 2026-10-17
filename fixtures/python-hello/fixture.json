@@ -1,0 +1,8 @@
+{
+  "description": "Minimal RobotPy TimedRobot from `robotpy init`, with pyfrc's built-in tests.",
+  "controller": "roborio",
+  "language": "python",
+  "jdk": null,
+  "robotpy": "2026.2.2",
+  "experimental": false
+}

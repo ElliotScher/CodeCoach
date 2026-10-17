@@ -6,7 +6,7 @@ CodeCoach builds on plain Node.js with pnpm scripts, so the same steps work on W
 
 | Tool | Version | Why |
 |---|---|---|
-| Node.js | 22 or newer (`.node-version` says `22`) | Everything |
+| Node.js | 22.12 or newer (`.node-version` says `22`, which version managers resolve to the latest 22.x) | Everything |
 | pnpm | exactly the version in `package.json`'s `packageManager` | Installed for you by corepack |
 | git | any recent | Cloning, and some tests |
 
@@ -82,15 +82,21 @@ export JAVA_HOME_25=/path/to/jdk-25
 
 ## 4. Python (optional)
 
-Install Python 3.10 or newer from [python.org](https://www.python.org/downloads/) (on Windows, keep the `py` launcher option checked). Doctor tries `py -3`, `python` and `python3` on Windows, and `python3` then `python` elsewhere. RobotPy itself is installed into each fixture's own virtual environment by the test setup, so you don't need to install it globally.
+Install Python 3.10 or newer from [python.org](https://www.python.org/downloads/) (on Windows, keep the `py` launcher option checked). Doctor tries `py -3`, `python` and `python3` on Windows, and `python3` then `python` elsewhere. RobotPy itself is installed into each fixture's own virtual environment by the test setup, so you don't need to install it globally. Set `CODECOACH_PYTHON` to choose which Python creates those environments.
 
 ## 5. VS Code
 
 Opening the repo in VS Code suggests the recommended extensions (`.vscode/extensions.json`): ESLint, Vitest and WPILib.
 
-Doctor looks for VS Code via `CODECOACH_VSCODE_EXECUTABLE` first, then `code` on `PATH`. Set the variable if your VS Code isn't on `PATH` or you want the extension tests to use a specific install.
+`pnpm test:vscode` downloads its own copy of VS Code by default. To use an installed one, set `CODECOACH_VSCODE_EXECUTABLE` to VS Code's **Electron binary**, not the `code` command-line launcher. The launcher hands off to a separate window and exits immediately, so the tests would "pass" without running. Examples of the Electron binary:
 
-Launching the extension in an Extension Development Host is documented once the extension exists (stage 2).
+- Windows: `C:\Users\<you>\AppData\Local\Programs\Microsoft VS Code\Code.exe`
+- macOS: `/Applications/Visual Studio Code.app/Contents/MacOS/Electron`
+- Linux: `/usr/share/code/code`
+
+Doctor reports `CODECOACH_VSCODE_EXECUTABLE` if it's set (and warns if it points at the launcher), otherwise `code` on `PATH`.
+
+To try the extension, run `pnpm dev:vscode`. It rebuilds on change and opens an Extension Development Host. Alternatively, run `pnpm build` and press F5 with the *Run CodeCoach extension* launch configuration.
 
 ## Troubleshooting
 

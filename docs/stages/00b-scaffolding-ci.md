@@ -21,7 +21,8 @@ tsconfig.base.json            # strict, ES2023, moduleResolution "bundler"
 tsconfig.json                 # project references to every package
 eslint.config.mjs             # flat config, typescript-eslint, import ordering
 .prettierrc.json
-vitest.workspace.ts
+vitest.config.ts              # Vitest 4+ removed vitest.workspace.ts
+tsconfig.tests.json           # typechecks tests against package sources
 packages/{core,providers,pedagogy,frc,ui,evals}/
   package.json  tsconfig.json  src/index.ts  test/smoke.test.ts
 apps/cli/                     # `codecoach --version` only
@@ -44,9 +45,11 @@ scripts/
 ### 4.1 TypeScript and module setup
 - **Modules:** ESM everywhere (`"type": "module"`).
 - **Build:** packages compile with `tsc -b` to `dist/` with declarations. Workspace deps use `workspace:*`.
-- **VS Code extension:** VS Code's extension host loads CommonJS more reliably, so `esbuild` bundles `apps/vscode/src/extension.ts` to a **CJS** bundle (`dist/extension.cjs`). *Verify* the current state of ESM extension support and drop the CJS step if it's stable.
+- **VS Code extension:** VS Code's extension host loads CommonJS more reliably, so `esbuild` bundles `apps/vscode/src/extension.ts` to a **CJS** bundle (`dist/extension.cjs`). Checked at 0b: third-party sources say ESM extensions work from VS Code 1.100, but there's no official documentation, so the CJS bundle stays. Revisit in stage 2.
 - **Webview:** a separate esbuild bundle that imports `@codecoach/ui`.
 - **Strict settings:** `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`.
+- **TypeScript version:** 6.0, not 7: typescript-eslint 8.71 supports `<6.1`.
+- **Source condition:** each package exports `"@codecoach/source": "./src/index.ts"` ahead of `dist/`. Vitest, esbuild, `tsx` (via `node --conditions`) and `tsconfig.tests.json` (`customConditions`) resolve workspace packages to source, so tests, bundles and the CLI never need a prior `tsc -b`.
 - **Package boundaries** are enforced by ESLint `no-restricted-imports`:
   - `pedagogy` and `frc` may import `core` types, but not each other's internals.
   - `providers` must not import `pedagogy`.
@@ -62,12 +65,14 @@ scripts/
 | `pnpm dev:vscode` | esbuild watch + launch the Extension Development Host |
 | `pnpm test:vscode` | `@vscode/test-electron` integration tests |
 | `pnpm package:vscode` | `@vscode/vsce package` → `apps/vscode/codecoach-<ver>.vsix` |
-| `pnpm fixtures [build\|test] [name]` | `scripts/fixtures.mjs` |
+| `pnpm fixtures [build\|test] [name]` | `scripts/fixtures.mjs` (`--jdk <N>`, `--strict`) |
 | `pnpm codecoach …` | runs `apps/cli` from source (via `tsx`) |
 | `pnpm run doctor` | from 0a |
 
 ### 4.3 VS Code test runner on NixOS and elsewhere
-`apps/vscode/test/run.mjs` calls `runTests({ vscodeExecutablePath: process.env.CODECOACH_VSCODE_EXECUTABLE, … })`. When the variable is unset (CI, stock machines), `@vscode/test-electron` downloads VS Code as usual. On Linux CI, wrap the run in `xvfb-run -a`.
+`apps/vscode/test/run.mjs` calls `runTests({ vscodeExecutablePath: process.env.CODECOACH_VSCODE_EXECUTABLE, … })`. When the variable is unset (CI, stock machines), `@vscode/test-electron` downloads VS Code as usual, at `CODECOACH_VSCODE_VERSION` if set (CI pins 1.105.1, WPILib 2026's VS Code). On Linux CI, wrap the run in `xvfb-run -a`.
+
+`CODECOACH_VSCODE_EXECUTABLE` must be VS Code's **Electron binary** (on NixOS, `<vscode>/lib/vscode/code`), not the `code` CLI launcher. The launcher hands off to a detached window and exits 0, so tests "pass" without running. Doctor flags a launcher script, and never runs the Electron binary, because `--version` there opens a full window.
 
 ### 4.4 Fixtures
 - **Fixture metadata:** each fixture's `fixture.json` records:
@@ -81,8 +86,10 @@ scripts/
   - reads `fixture.json`;
   - resolves the JDK with the 0a probe (stage 1's `jdk.ts` later);
   - spawns `gradlew(.bat) build` with `JAVA_HOME` set to that JDK;
-  - for Python, creates `.venv` and installs the pinned `robotpy`, then runs `python -m robotpy test` (*verify* the command for the current RobotPy release).
-- **SystemCore:** the SystemCore fixture depends on GradleRIO for the 2027 season. If that's only in beta, pin the beta and mark the fixture `experimental: true` (allowed to fail in CI) until the season release. *Verify* availability when 0b starts.
+  - for Python, creates `.venv` and installs the pinned `robotpy`, then runs `python -m robotpy test` (verified with robotpy 2026.2.2 and pyfrc's built-in tests). `build` only byte-compiles;
+  - `CODECOACH_PYTHON_LIBRARY_PATH` is prepended to the library path for Python runs (NixOS needs it for robotpy's wheels to find `libstdc++`; the NixHub shell sets it).
+- **SystemCore:** at 0b, the 2027 season is at **2027.0.0-alpha-7** (GradleRIO plugin id `org.wpilib.GradleRIO`, Gradle 9.4.1, package `first.robot`, `CommandsV2.json`). The fixture pins it with `experimental: true`: `fixtures.mjs` reports its failures without failing the run, unless `--strict`. Revisit at kickoff.
+- **Team number:** templates ship with `teamNumber: -1`, which GradleRIO rejects at configuration time. Fixtures use `0`.
 
 ### 4.5 CI (`.github/workflows/ci.yml`)
 ```
@@ -104,31 +111,31 @@ jobs:
 - it caches `~/.gradle/caches` and `~/.gradle/wrapper`;
 - it builds every fixture on all three OSes.
 
-*Verify:* when `setup-java` installs several versions, it exports `JAVA_HOME_17_X64` and `JAVA_HOME_25_X64` (`_ARM64` on Apple-silicon macOS runners), and `JAVA_HOME` points at the **last** version listed.
+Verified (setup-java README): each installed JDK gets `JAVA_HOME_<major>_<arch>` (`_X64`, or `_ARM64` on Apple-silicon runners), and the **last** version listed becomes `JAVA_HOME`.
 
 ### 4.6 Extension skeleton
 - **`contributes`:**
   - a `codecoach` view container in the activity bar, holding the webview view `codecoach.chat`;
   - the command `codecoach.openChat`;
   - `activationEvents`: `onView:codecoach.chat` and `workspaceContains:**/build.gradle` / `**/pyproject.toml`.
-- **`engines.vscode`:** at most the VS Code version WPILib ships for the current season (*verify*), so it installs into WPILib VS Code.
+- **`engines.vscode`:** `^1.105.0`. Verified from WPILibInstaller-Avalonia's `versions.gradle`: 2026.2.1 bundles VS Code 1.105.1, and 2027.0.0-alpha-7 bundles 1.134.0.
 - **Webview:** renders "CodeCoach is coming soon" from `@codecoach/ui`, with a strict CSP (`default-src 'none'`, nonce-based scripts).
 
 ## 5. Task breakdown
 **PR 1: workspace skeleton**
-- [ ] M: root configs (tsconfig, eslint, prettier, vitest), all packages with smoke tests
-- [ ] S: package boundary lint rules
+- [x] M: root configs (tsconfig, eslint, prettier, vitest), all packages with smoke tests
+- [x] S: package boundary lint rules
 
 **PR 2: extension and CLI skeletons**
-- [ ] M: `apps/vscode` (esbuild, webview with CSP, test runner honoring `CODECOACH_VSCODE_EXECUTABLE`)
-- [ ] S: `apps/cli` with commander/citty, `--version`
+- [x] M: `apps/vscode` (esbuild, webview with CSP, test runner honoring `CODECOACH_VSCODE_EXECUTABLE`)
+- [x] S: `apps/cli` with commander, `--version`
 
 **PR 3: fixtures**
-- [ ] M: generate and commit `java-roborio-hello`, `java-systemcore-hello`, `python-hello`
-- [ ] M: `scripts/fixtures.mjs`
+- [x] M: generate `java-roborio-hello`, `java-systemcore-hello`, `python-hello`
+- [x] M: `scripts/fixtures.mjs`
 
 **PR 4: CI**
-- [ ] M: `ci.yml` on 3 OSes; `fixtures.yml` with Gradle caching
+- [x] M: `ci.yml` on 3 OSes (includes 0a's doctor job); `fixtures.yml` with Gradle caching. Written and checked locally; not yet run on GitHub
 - [ ] S: branch protection: `checks` required
 
 ## 6. Testing and verification

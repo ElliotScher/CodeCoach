@@ -1,0 +1,72 @@
+name: Fixtures
+
+# Slow (Gradle downloads WPILib artifacts), so it only runs when fixtures or
+# the code that drives them change, plus nightly.
+on:
+  push:
+    branches: [main]
+    paths:
+      - fixtures/**
+      - packages/frc/**
+      - scripts/fixtures.mjs
+      - scripts/lib/**
+      - .github/workflows/fixtures.yml
+  pull_request:
+    paths:
+      - fixtures/**
+      - packages/frc/**
+      - scripts/fixtures.mjs
+      - scripts/lib/**
+      - .github/workflows/fixtures.yml
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Use setup-python's interpreter rather than whatever `py -3` finds.
+  CODECOACH_PYTHON: python
+
+jobs:
+  fixtures:
+    name: fixtures (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            25
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.gradle/permwrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('fixtures/**/build.gradle', 'fixtures/**/gradle-wrapper.properties', 'fixtures/**/vendordeps/*.json') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      # fixtures.mjs only needs Node, so no pnpm install here.
+      # Experimental fixtures (the SystemCore alpha) are reported but not fatal.
+      - name: Build fixtures
+        run: node scripts/fixtures.mjs build
+      - name: Test fixtures
+        run: node scripts/fixtures.mjs test

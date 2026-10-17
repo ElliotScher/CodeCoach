@@ -1,0 +1,8 @@
+{
+  "description": "Unmodified WPILib 2026 Command Robot template (roboRIO).",
+  "controller": "roborio",
+  "language": "java",
+  "jdk": 17,
+  "wpilib": "2026.2.1",
+  "experimental": false
+}

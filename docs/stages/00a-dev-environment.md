@@ -125,7 +125,7 @@ The contents are as listed in PLAN.md §7. The README's development section is a
 - [x] M: `docs/dev-setup.md`
 
 **PR 3: doctor in CI** (lands with 0b's workflow)
-- [ ] S: `doctor` job on ubuntu, windows and macos with `setup-java` installing 17 and 25; asserts both are detected
+- [x] S: `doctor` job on ubuntu, windows and macos with `setup-java` installing 17 and 25; asserts both are detected (the `checks` job in 0b's `ci.yml`)
 
 ## 6. Testing and verification
 - `nix develop ~/Documents/NixHub/dev/FRC/CodeCoach -c pnpm run doctor` → all OK, both JDKs found via `JAVA_HOME_17`/`JAVA_HOME_25`.

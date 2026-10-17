@@ -3,8 +3,10 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { after, describe, test } from "node:test";
+
 import {
   candidateHomes,
+  defaultExec,
   findJdk,
   majorFromVersion,
   parseJavaVersionOutput,
@@ -159,5 +161,16 @@ describe("findJdk against fake installs", () => {
       home: "/usr/lib/jvm/java-25",
       source: "java on PATH",
     });
+  });
+});
+
+describe("defaultExec", () => {
+  test("keeps stderr from a successful command (java -version writes there)", () => {
+    const script = `process.stderr.write(${JSON.stringify('openjdk version "17.0.1"')})`;
+    const out = defaultExec(process.execPath, ["-e", script]);
+    assert.equal(parseJavaVersionOutput(out)?.major, 17);
+  });
+  test("missing command gives empty output", () => {
+    assert.equal(defaultExec("codecoach-no-such-command", []), "");
   });
 });

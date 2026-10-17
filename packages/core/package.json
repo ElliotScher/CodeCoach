@@ -1,0 +1,18 @@
+{
+  "name": "@codecoach/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Agent loop, ChatProvider interface, tool registry, session store, budget meter",
+  "license": "BSD-3-Clause",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@codecoach/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ]
+}

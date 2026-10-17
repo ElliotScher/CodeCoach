@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Run `pnpm build` (or `pnpm --filter ./apps/vscode run watch`) first.
+      "name": "Run CodeCoach extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}/apps/vscode"],
+      "outFiles": ["${workspaceFolder}/apps/vscode/dist/**/*.cjs"]
+    }
+  ]
+}

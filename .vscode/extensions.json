@@ -1,7 +1,3 @@
 {
-  "recommendations": [
-    "dbaeumer.vscode-eslint",
-    "vitest.explorer",
-    "wpilibsuite.vscode-wpilib"
-  ]
+  "recommendations": ["dbaeumer.vscode-eslint", "vitest.explorer", "wpilibsuite.vscode-wpilib"]
 }

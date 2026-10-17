@@ -8,6 +8,7 @@ coverage/
 
 # VS Code extension packaging and tests
 apps/vscode/*.vsix
+apps/vscode/LICENSE
 .vscode-test/
 
 # Fixture build output (Gradle, RobotPy)

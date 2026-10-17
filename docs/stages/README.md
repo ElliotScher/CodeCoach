@@ -10,8 +10,8 @@ Task sizes: **S** ≈ under half a day, **M** ≈ 1–3 days, **L** ≈ a week o
 
 | # | Stage | Doc | Status |
 |---|---|---|---|
-| 0a | Dev environment | [00a-dev-environment.md](00a-dev-environment.md) | Done except the CI doctor job, which lands with 0b |
-| 0b | Scaffolding and CI | [00b-scaffolding-ci.md](00b-scaffolding-ci.md) | Not started |
+| 0a | Dev environment | [00a-dev-environment.md](00a-dev-environment.md) | Done |
+| 0b | Scaffolding and CI | [00b-scaffolding-ci.md](00b-scaffolding-ci.md) | Done locally; waiting on the first green CI run and branch protection |
 | 1 | Core agent, pedagogy v1, CLI, evals v1 | [01-core-and-pedagogy.md](01-core-and-pedagogy.md) | Not started |
 | 2 | VS Code extension MVP | [02-vscode-extension.md](02-vscode-extension.md) | Not started |
 | 3 | OpenAI and Google providers | [03-multi-provider.md](03-multi-provider.md) | Not started |

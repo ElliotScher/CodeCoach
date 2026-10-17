@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    // Resolve workspace packages to their src/ so tests typecheck without a build.
+    "customConditions": ["@codecoach/source"]
+  },
+  "include": ["packages/*/test", "apps/*/test", "*.config.ts"]
+}

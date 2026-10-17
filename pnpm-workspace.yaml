@@ -2,3 +2,7 @@ packages:
   - "packages/*"
   - "apps/*"
   - "services/*"
+allowBuilds:
+  "@vscode/vsce-sign": false
+  esbuild: false
+  unrs-resolver: false

@@ -1,0 +1,24 @@
+{
+  "name": "@codecoach/evals",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Scenario fixtures runner, simulated student, LLM-judge rubric, score matrix",
+  "license": "BSD-3-Clause",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@codecoach/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@codecoach/core": "workspace:*",
+    "@codecoach/providers": "workspace:*",
+    "@codecoach/pedagogy": "workspace:*",
+    "@codecoach/frc": "workspace:*"
+  }
+}

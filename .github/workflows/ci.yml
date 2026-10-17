@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+  # The VS Code that WPILib 2026 bundles; the extension must run in it.
+  CODECOACH_VSCODE_VERSION: "1.105.1"
+
+jobs:
+  checks:
+    name: checks (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+
+      - name: Enable corepack
+        run: corepack enable
+
+      # The last version listed becomes JAVA_HOME; both get JAVA_HOME_<N>_<arch>.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            25
+
+      # Before `pnpm install`: doctor has no dependencies. Run it with node
+      # directly so pnpm's "$ node ..." banner doesn't end up in the JSON.
+      - name: Doctor
+        shell: bash
+        run: node scripts/doctor.mjs --json > doctor.json
+
+      - name: Doctor found both JDKs
+        shell: bash
+        run: |
+          cat doctor.json
+          node -e '
+            const { checks } = JSON.parse(require("fs").readFileSync("doctor.json", "utf8"));
+            for (const id of ["jdk17", "jdk25"]) {
+              const c = checks.find((c) => c.id === id);
+              if (c?.status !== "OK") { console.error(`${id} not detected: ${c?.details}`); process.exit(1); }
+              console.log(`${id}: ${c.found} via ${c.details}`);
+            }'
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm build
+      - run: pnpm test
+      - run: pnpm test:scripts
+
+      - name: VS Code integration tests (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a pnpm test:vscode
+      - name: VS Code integration tests
+        if: runner.os != 'Linux'
+        run: pnpm test:vscode
+
+      - name: Package extension
+        if: runner.os == 'Linux'
+        run: pnpm package:vscode
+      - uses: actions/upload-artifact@v7
+        if: runner.os == 'Linux'
+        with:
+          name: codecoach-vsix
+          path: apps/vscode/*.vsix
+          if-no-files-found: error

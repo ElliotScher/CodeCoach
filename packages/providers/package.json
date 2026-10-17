@@ -1,0 +1,21 @@
+{
+  "name": "@codecoach/providers",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Anthropic, OpenAI and Google ChatProvider adapters",
+  "license": "BSD-3-Clause",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@codecoach/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@codecoach/core": "workspace:*"
+  }
+}

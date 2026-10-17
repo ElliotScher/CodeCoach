@@ -75,7 +75,7 @@ The full plan is in [docs/PLAN.md](docs/PLAN.md), with per-stage detail in [docs
 | Stage | What | Status |
 |---|---|---|
 | 0a | Dev environment: toolchain pins, `pnpm run doctor`, docs | Done |
-| 0b | Workspace scaffolding and CI | In progress |
+| 0b | Workspace scaffolding and CI | Done |
 | 1 | Core agent, pedagogy v1, CLI, evals | Not started |
 | 2 | VS Code extension MVP | Not started |
 | 3 | OpenAI and Google providers | Not started |

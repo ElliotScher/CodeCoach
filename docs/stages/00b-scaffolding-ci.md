@@ -135,7 +135,7 @@ Verified on CI: each installed JDK gets `JAVA_HOME_<major>_<arch>`: `_X64` on x6
 - [x] M: `scripts/fixtures.mjs`
 
 **PR 4: CI**
-- [x] M: `ci.yml` on 3 OSes (includes 0a's doctor job); `fixtures.yml` with Gradle caching. Written and checked locally; not yet run on GitHub
+- [x] M: `ci.yml` on 3 OSes (includes 0a's doctor job); `fixtures.yml` with Gradle caching. Green on all three OSes
 - [ ] S: branch protection: `checks` required
 
 ## 6. Testing and verification

@@ -11,6 +11,7 @@ on:
       - scripts/fixtures.mjs
       - scripts/lib/**
       - .github/workflows/fixtures.yml
+      - .gitattributes
   pull_request:
     paths:
       - fixtures/**
@@ -18,6 +19,7 @@ on:
       - scripts/fixtures.mjs
       - scripts/lib/**
       - .github/workflows/fixtures.yml
+      - .gitattributes
   schedule:
     - cron: "0 7 * * *"
   workflow_dispatch:

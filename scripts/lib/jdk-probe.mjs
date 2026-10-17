@@ -2,7 +2,8 @@
 //
 // The lookup order is the same one stage 1's resolver (packages/frc/src/jdk.ts)
 // uses, so doctor reports what the coach will actually pick:
-//   1. JAVA_HOME_<N>, then JAVA_HOME_<N>_X64 / JAVA_HOME_<N>_ARM64 (actions/setup-java)
+//   1. JAVA_HOME_<N>, then JAVA_HOME_<N>_<ARCH> as set by actions/setup-java
+//      (X64 on x64 runners, AARCH64 on Apple-silicon macOS), host arch first
 //   2. WPILib's bundled JDK, newest season first
 //   3. JAVA_HOME
 //   4. `java` on PATH
@@ -64,6 +65,21 @@ export function wpilibYears(root, { readdir = readdirSync } = {}) {
   return entries.filter((e) => /^\d{4}$/.test(e)).sort((a, b) => Number(b) - Number(a));
 }
 
+// Suffixes setup-java uses for each Node `process.arch`. Its README says
+// _ARM64, but Apple-silicon runners actually get _AARCH64, so accept both.
+const ARCH_SUFFIXES = { x64: ["X64"], arm64: ["ARM64", "AARCH64"], ia32: ["X86"] };
+
+/** JAVA_HOME_<major>_<ARCH> variables that are set, host architecture first. */
+export function archVarNames(major, env, arch) {
+  const prefix = `JAVA_HOME_${major}_`;
+  const preferred = (ARCH_SUFFIXES[arch] ?? []).map((s) => prefix + s);
+  const names = Object.keys(env).filter(
+    (k) => k.startsWith(prefix) && /^[A-Z0-9]+$/.test(k.slice(prefix.length)) && env[k],
+  );
+  const rank = (k) => (preferred.includes(k) ? preferred.indexOf(k) : preferred.length);
+  return names.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+}
+
 /**
  * Candidate JDK homes for `major`, in lookup order. `java` on PATH is not
  * included here because it has no home until we run it.
@@ -72,8 +88,9 @@ export function wpilibYears(root, { readdir = readdirSync } = {}) {
 export function candidateHomes(major, ctx = {}) {
   const env = ctx.env ?? process.env;
   const out = [];
-  for (const name of [`JAVA_HOME_${major}`, `JAVA_HOME_${major}_X64`, `JAVA_HOME_${major}_ARM64`]) {
-    if (env[name]) out.push({ source: name, home: env[name] });
+  if (env[`JAVA_HOME_${major}`]) out.push({ source: `JAVA_HOME_${major}`, home: env[`JAVA_HOME_${major}`] });
+  for (const name of archVarNames(major, env, ctx.arch ?? process.arch)) {
+    out.push({ source: name, home: env[name] });
   }
   const root = wpilibRoot(ctx);
   const join = (ctx.platform ?? process.platform) === "win32" ? path.win32.join : path.join;

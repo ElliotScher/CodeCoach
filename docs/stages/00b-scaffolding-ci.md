@@ -111,7 +111,7 @@ jobs:
 - it caches `~/.gradle/caches` and `~/.gradle/wrapper`;
 - it builds every fixture on all three OSes.
 
-Verified (setup-java README): each installed JDK gets `JAVA_HOME_<major>_<arch>` (`_X64`, or `_ARM64` on Apple-silicon runners), and the **last** version listed becomes `JAVA_HOME`.
+Verified on CI: each installed JDK gets `JAVA_HOME_<major>_<arch>`: `_X64` on x64 runners, and `_AARCH64` on Apple-silicon macOS, even though the setup-java README implies `_ARM64`, and the **last** version listed becomes `JAVA_HOME`.
 
 ### 4.6 Extension skeleton
 - **`contributes`:**

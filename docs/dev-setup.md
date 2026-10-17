@@ -59,7 +59,7 @@ You can also run it before `pnpm install` with `node scripts/doctor.mjs`; it has
 
 CodeCoach never trusts the ambient `JAVA_HOME` alone. It looks for each JDK version in this order and reports which one it found:
 
-1. `JAVA_HOME_17` / `JAVA_HOME_25` (or the `_X64` / `_ARM64` variants that GitHub's `actions/setup-java` sets)
+1. `JAVA_HOME_17` / `JAVA_HOME_25` (or the `_X64` / `_AARCH64` variants that GitHub's `actions/setup-java` sets)
 2. WPILib's bundled JDK, newest season first:
    - Windows: `C:\Users\Public\wpilib\<year>\jdk`
    - macOS and Linux: `~/wpilib/<year>/jdk`

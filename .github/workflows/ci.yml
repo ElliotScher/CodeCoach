@@ -43,16 +43,20 @@ jobs:
             17
             25
 
-      # Before `pnpm install`: doctor has no dependencies. Run it with node
-      # directly so pnpm's "$ node ..." banner doesn't end up in the JSON.
+      # The first pnpm call makes corepack download pnpm; do it on its own so
+      # its time (and any error) shows up here rather than inside doctor.
+      - name: Fetch pnpm
+        run: pnpm --version
+
+      # Before `pnpm install`: doctor has no dependencies. The table goes to
+      # the log, so a failure shows which check failed and why.
       - name: Doctor
-        shell: bash
-        run: node scripts/doctor.mjs --json > doctor.json
+        run: node scripts/doctor.mjs
 
       - name: Doctor found both JDKs
         shell: bash
         run: |
-          cat doctor.json
+          node scripts/doctor.mjs --json > doctor.json || true
           node -e '
             const { checks } = JSON.parse(require("fs").readFileSync("doctor.json", "utf8"));
             for (const id of ["jdk17", "jdk25"]) {

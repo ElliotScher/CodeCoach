@@ -83,7 +83,7 @@ Flags:
 
 ### 4.4 JDK probe (`scripts/lib/jdk-probe.mjs`)
 This is the same lookup order that stage 1's resolver will use, kept dependency-free:
-1. `JAVA_HOME_<N>`, then `JAVA_HOME_<N>_X64` / `JAVA_HOME_<N>_ARM64`.
+1. `JAVA_HOME_<N>`, then any `JAVA_HOME_<N>_<ARCH>` (`_X64`, `_ARM64`, `_AARCH64`, ...), host architecture first.
 2. WPILib's bundled JDK:
    - `~/wpilib/<year>/jdk` on Linux and macOS;
    - `C:\Users\Public\wpilib\<year>\jdk` on Windows.

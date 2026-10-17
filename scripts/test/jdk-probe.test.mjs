@@ -5,6 +5,7 @@ import path from "node:path";
 import { after, describe, test } from "node:test";
 
 import {
+  archVarNames,
   candidateHomes,
   defaultExec,
   findJdk,
@@ -89,6 +90,7 @@ describe("candidateHomes order", () => {
   test("per-version vars, then WPILib, then JAVA_HOME", () => {
     const ctx = {
       platform: "linux",
+      arch: "x64",
       homedir: "/home/s",
       readdir: () => ["2026", "2027"],
       env: {
@@ -103,6 +105,17 @@ describe("candidateHomes order", () => {
       candidateHomes(25, ctx).map((c) => c.source),
       ["JAVA_HOME_25", "JAVA_HOME_25_X64", "JAVA_HOME_25_ARM64", "WPILib 2027", "WPILib 2026", "JAVA_HOME"],
     );
+  });
+
+  test("setup-java's _AARCH64 suffix on Apple-silicon runners", () => {
+    const env = { JAVA_HOME_17_AARCH64: "/a17", JAVA_HOME_25_AARCH64: "/a25", JAVA_HOME_17_X64: "/x17" };
+    assert.deepEqual(archVarNames(17, env, "arm64"), ["JAVA_HOME_17_AARCH64", "JAVA_HOME_17_X64"]);
+    assert.deepEqual(archVarNames(17, env, "x64"), ["JAVA_HOME_17_X64", "JAVA_HOME_17_AARCH64"]);
+  });
+
+  test("ignores other majors and non-arch suffixes", () => {
+    const env = { JAVA_HOME_170_X64: "/no", JAVA_HOME_17_X64: "/yes", JAVA_HOME_17_x64: "/no", JAVA_HOME_17_: "/no" };
+    assert.deepEqual(archVarNames(17, env, "x64"), ["JAVA_HOME_17_X64"]);
   });
 });
 

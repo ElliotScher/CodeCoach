@@ -25,9 +25,9 @@ const MIN_PYTHON = [3, 10];
 const PROVIDER_KEYS = ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"];
 
 /** Runs a command; returns { ok, out } with stdout+stderr combined. */
-function run(cmd, args, { shell = false } = {}) {
+function run(cmd, args, { shell = false, timeout = 20000 } = {}) {
   try {
-    const opts = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 20000 };
+    const opts = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout };
     // pnpm and code are .cmd shims on Windows, which need a shell to run.
     // Pass one command string there: Node 24+ deprecates args with shell: true
     // (DEP0190). The args are fixed strings, so there is nothing to escape.
@@ -36,7 +36,12 @@ function run(cmd, args, { shell = false } = {}) {
       : execFileSync(cmd, args, opts);
     return { ok: true, out };
   } catch (err) {
-    return { ok: false, out: `${err.stdout ?? ""}${err.stderr ?? ""}`, missing: err.code === "ENOENT" };
+    return {
+      ok: false,
+      out: `${err.stdout ?? ""}${err.stderr ?? ""}`,
+      missing: err.code === "ENOENT",
+      timedOut: err.code === "ETIMEDOUT",
+    };
   }
 }
 
@@ -76,13 +81,19 @@ function checkNode() {
 
 function checkPnpm() {
   const wanted = pinnedPnpm();
-  const r = run("pnpm", ["--version"], { shell: IS_WINDOWS });
-  const found = r.ok ? firstLine(r.out) : null;
+  // The first run after `corepack enable` downloads pnpm, which can take a
+  // while (notably on Windows), so allow much longer than the other checks.
+  const timeout = 180000;
+  const r = run("pnpm", ["--version"], { shell: IS_WINDOWS, timeout });
+  // Take the version line rather than the first line, in case corepack prints a notice.
+  const found = r.ok ? (/^\d+\.\d+\.\d+\S*$/m.exec(r.out)?.[0] ?? firstLine(r.out)) : null;
   let status = "OK";
   let details = "";
   if (!found) {
     status = "MISSING";
-    details = "run `corepack enable`";
+    details = r.timedOut
+      ? `\`pnpm --version\` timed out after ${timeout / 1000}s (corepack may still be downloading pnpm)`
+      : `run \`corepack enable\`${r.out.trim() ? ` (pnpm said: ${firstLine(r.out)})` : ""}`;
   } else if (found !== wanted) {
     status = "OLD";
     details = `pinned by packageManager; run \`corepack enable\` so pnpm follows the pin`;

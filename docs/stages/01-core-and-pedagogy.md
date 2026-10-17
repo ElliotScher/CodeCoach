@@ -176,7 +176,7 @@ Output: a typed `ProjectSummary`, with a stable JSON rendering for prompt layer 
    - the controller comes from the GradleRIO version / project year (2027+ → SystemCore, *verify*) and the deploy target;
    - an explicit `java.toolchain.languageVersion` overrides this, and is reported if it disagrees.
 2. **Candidates,** in this order:
-   - `JAVA_HOME_<N>`, `JAVA_HOME_<N>_X64`, `JAVA_HOME_<N>_ARM64`;
+   - `JAVA_HOME_<N>`, then any `JAVA_HOME_<N>_<ARCH>` (setup-java uses `_X64`, and `_AARCH64` on Apple silicon), host arch first;
    - WPILib's `~/wpilib/<year>/jdk` (Windows: `C:\Users\Public\wpilib\<year>\jdk`), matching the project's year first;
    - `JAVA_HOME`;
    - `java` on PATH.

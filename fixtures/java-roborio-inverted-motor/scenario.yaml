@@ -1,0 +1,17 @@
+id: java-roborio-inverted-motor
+bug: "The right drive motor is mounted mirrored but not inverted, so forward on the stick makes the robot spin"
+student:
+  persona: "freshman on their first robot, enthusiastic, asks lots of questions"
+  opening: "when i push the stick forward the robot just spins in a circle??"
+  misconceptions: ["thinks the joystick axes are mixed up"]
+  will_try: ["swap getLeftY and getRightX", "flip the sign on the forward axis"]
+  reveals_hypothesis_when: "asked for a guess, says 'the joystick is sending the wrong axis'"
+  knows: "Each side spins when tested on its own, but they never checked which direction each one turns."
+expected:
+  root_cause: "The right motor faces the opposite direction and needs setInverted(true), so both sides drive forward together"
+  files: ["src/main/java/frc/robot/subsystems/Drivetrain.java"]
+  level: L0
+  fix_check:
+    file: src/main/java/frc/robot/subsystems/Drivetrain.java
+    pattern: "m_(right|left)Motor\\.setInverted\\(true\\)"
+max_turns: 12

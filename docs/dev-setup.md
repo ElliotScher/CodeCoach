@@ -21,7 +21,7 @@ CodeCoach builds on plain Node.js with pnpm scripts, so the same steps work on W
 | Python 3.10+ with `venv` | RobotPy fixtures (RobotPy 2026 supports Python 3.10–3.14) |
 | VS Code | Running the extension and its tests |
 | CTRE `owlet` | `.hoot` log tests ([download from CTRE](https://docs.ctr-electronics.com/cli-tools)) |
-| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` | Live CLI runs and evals only |
+| Claude Code, signed in with a Pro/Max account | Live coaching sessions and evals, once stage 1b lands. The project doesn't use API keys (see below) |
 
 ## 1. Install Node 22
 
@@ -97,6 +97,19 @@ Opening the repo in VS Code suggests the recommended extensions (`.vscode/extens
 Doctor reports `CODECOACH_VSCODE_EXECUTABLE` if it's set (and warns if it points at the launcher), otherwise `code` on `PATH`.
 
 To try the extension, run `pnpm dev:vscode`. It rebuilds on change and opens an Extension Development Host. Alternatively, run `pnpm build` and press F5 with the *Run CodeCoach extension* launch configuration.
+
+## 6. Running the coach
+
+**Spending policy:** CodeCoach doesn't use paid API keys. Live sessions and evals will run on a Claude Pro/Max subscription through Claude Code ([stage 1b](stages/01b-subscription-transport.md)), and students will use subscription apps they already have (stage 6). Don't set `ANTHROPIC_API_KEY` for this project.
+
+Until stage 1b lands, `pnpm codecoach chat` and `pnpm codecoach eval` only have the API-key path from stage 1, which is off by project policy. These parts work today without any account:
+
+- `pnpm codecoach analyze <project>` prints what CodeCoach detects about a project (language, controller, season, robot structure) and which JDK it would use.
+- `pnpm test` runs every unit test, including the coach, checker and evals, against scripted model responses. It never calls a model.
+
+In the chat, `/hint` asks for a hint, `/tell-me` asks to be told (the coach still asks for one guess first), `/state` shows the debugging state and `/cost` shows the session's usage. The guardrail level comes from the project's `.codecoach/config.json` (default L0); `--level` overrides it for testing.
+
+Sessions are stored locally: `~/.local/share/codecoach` on Linux, `~/Library/Application Support/CodeCoach` on macOS and `%APPDATA%\CodeCoach` on Windows. Set `CODECOACH_HOME` to use another folder.
 
 ## Troubleshooting
 

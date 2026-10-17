@@ -18,12 +18,13 @@ The repo is greenfield: only the README and LICENSE (BSD-3-Clause) exist.
 |---|---|
 | Form factor | A shared TypeScript core. It ships first as a **VS Code extension** that works inside WPILib VS Code; a standalone **Electron desktop app** comes later and reuses the same core and UI |
 | Chat UI | CodeCoach always has **its own chat window**. It never hands the conversation off to a vendor's CLI UI |
-| Providers | Anthropic, OpenAI and Google, all behind one `ChatProvider` interface. API keys are the main path |
-| Subscriptions | CodeCoach keeps its own chat UI. The transport is either an official extension API (GitHub Copilot via VS Code's Language Model API) or the vendor's official runtime running **headlessly** (Codex app-server, Gemini CLI, Claude Agent SDK). Each adapter ships only after that vendor's terms are confirmed, including age limits (stage 6) |
+| Providers | Anthropic, OpenAI and Google, all behind one `ChatProvider` interface. **Subscriptions are the main path**: no API-key spending (see Spending) |
+| Spending | **No API-key spending for the rest of the project** unless the project owner explicitly lifts it after the feasibility checkpoint (stages 1–2 exit criteria met). Development and evals run on the owner's **Claude Pro/Max subscription through Claude Code in headless mode** (stage 1b), a development-only transport that is never shipped. The API-key adapters stay in the code, disabled unless explicitly opted in, and CI never needs a key |
+| Subscriptions | CodeCoach keeps its own chat UI. The transport is either an official extension API (GitHub Copilot via VS Code's Language Model API) or the vendor's official runtime running **headlessly** (Claude Code for development; Codex app-server and Gemini CLI for students). Each student-facing adapter ships only after that vendor's terms are confirmed, including age limits (stage 6). A Claude subscription path for students needs Anthropic's approval |
 | Ecosystems (v1) | Java command-based, AdvantageKit and log replay, C++, Python (RobotPy) |
 | Controllers | roboRIO (JDK 17) **and** SystemCore (JDK 25). The JDK is chosen per project, never from the ambient `JAVA_HOME` |
 | Guardrails | Set by the team mentor (L0–L3), default **L0 Socratic**. Enforced in code, not only in the prompt |
-| Sponsor pool | Optional, **fully separate** from teams using their own keys or subscriptions, and **built last** (stage 9) because it is the least likely to happen |
+| Sponsor pool | Optional, **fully separate** from teams using their own subscriptions, and **built last** (stage 9) because it is the least likely to happen. It would spend a sponsor's API credits, so it also needs the spending gate lifted |
 | Privacy | Local-first. No telemetry by default; conversations stay on the student's machine; keys live in the OS secret store |
 | Nix | Not in the repo. Your personal flake lives in NixHub; contributors and CI use plain Node + corepack + pnpm scripts |
 
@@ -38,10 +39,16 @@ The repo is greenfield: only the README and LICENSE (BSD-3-Clause) exist.
      ├─ packages/pedagogy   prompt layers · guardrail engine · response checker · debugging state machine
      ├─ packages/frc        project analyzer · code nav · JDK resolver · build/sim runner ·
      │                      FRC lint · log parsers (wpilog, dslog, hoot) · NT4 client · docs index
-     └─ packages/providers  anthropic · openai · google · [subscription adapters] · [pool]
-              │ HTTPS with the team's own key          │ HTTPS, stage 9 only
-              ▼                                        ▼
-      Anthropic / OpenAI / Google APIs          services/pool ──► provider APIs (sponsor keys)
+     └─ packages/providers  subscription transports · [API-key adapters, off] · [pool]
+              │ stdio to the vendor's official runtime, user's own sign-in
+              │ (Claude Code for development; vscode.lm / Codex / Gemini CLI for students)
+              │ CodeCoach's tools offered to the runtime via packages/mcp-server
+              ▼
+      Claude Code / Copilot / Codex / Gemini CLI ──► vendor services
+
+      Only if the owner lifts the spending gate:
+        API-key adapters ──► Anthropic / OpenAI / Google APIs
+        services/pool (stage 9) ──► provider APIs (sponsor keys)
 ```
 
 ### Repo layout
@@ -53,7 +60,7 @@ packages/
   frc/             project analyzer, FRC tools, JDK resolver, log parsers, NT4 client, docs index
   ui/              React chat UI shared by the VS Code webview and the desktop app
   evals/           scenario fixtures, simulated student, LLM-judge rubric, score matrix
-  mcp-server/      (stage 6) the tool registry exposed over MCP, for subscription runtimes
+  mcp-server/      (stage 1b) the tool registry exposed over MCP, for subscription runtimes
   pool-protocol/   (stage 9) shared types + API client for services/pool
 apps/
   vscode/          VS Code extension
@@ -69,23 +76,30 @@ docs/              this plan; per-stage plans in docs/stages/ (index: docs/stage
 
 ## 1. Provider layer (`packages/providers`)
 - **One interface.** `ChatProvider` covers streaming, tool calls, prompt caching where the provider supports it, token usage reporting and model listing. The core agent loop is a manual loop over this interface (no vendor tool-runner helpers), so every provider behaves the same way.
-- **Adapters:**
-  | Provider | SDK | Notes |
-  |---|---|---|
-  | Anthropic | `@anthropic-ai/sdk`, Messages API, streaming | Default model `claude-opus-5-5` with adaptive thinking and an explicit `output_config.effort` (it defaults to `medium` on that model). `claude-haiku-5-5` for cheap sub-tasks. Prompt caching on the stable prefix; per-turn coaching state goes in mid-conversation system messages so the cache isn't broken; append-only history; `refusal` stop reason handled; server-side fallbacks enabled |
-  | OpenAI | `openai`, Responses API | Model list configurable; defaults chosen from evals |
-  | Google | `@google/genai` | Model list configurable; defaults chosen from evals |
+- **Spending policy.** Until the owner lifts it (see Decisions), no code path spends API money by default:
+  - API-key adapters refuse to run unless explicitly opted in (`--allow-api-spend` / `CODECOACH_ALLOW_API_SPEND=1`), and the UI hides API-key setup behind an experimental setting;
+  - the subscription transports are the defaults: Claude Code for development (stage 1b), then Copilot, Codex and Gemini CLI for students (stage 6);
+  - unit tests and CI use recorded or mocked streams and never need a key.
+- **Transports and adapters:**
+  | Provider | Transport | Status | Notes |
+  |---|---|---|---|
+  | Anthropic, development | **Claude Code, headless** (`claude -p`, stream-json), signed in with the owner's Pro/Max account | **Main path for development and evals** (stage 1b) | Development-only, never shipped: Anthropic doesn't allow third-party products to offer claude.ai login without approval. CodeCoach's tools over MCP, Claude Code's built-in tools off, pedagogy prompt injected and canary-checked. Usage shows as subscription limits, not dollars |
+  | Anthropic, API key | `@anthropic-ai/sdk`, Messages API, streaming | Built in stage 1; **off unless opted in** | Default model `claude-opus-5-5` with adaptive thinking and an explicit `output_config.effort`; `claude-haiku-5-5` for cheap sub-tasks; prompt caching; mid-conversation system messages; append-only history; refusals and server-side fallbacks handled |
+  | GitHub Copilot | VS Code Language Model API (`vscode.lm`) | Stage 6, first student-facing path | Many students get Copilot free; an official extension API |
+  | OpenAI | Codex `app-server`, ChatGPT sign-in | Stage 6 | Built for third-party front ends |
+  | Google | Gemini CLI (ACP mode), Google sign-in | Stage 6 | Consumer data-use terms shown in the privacy banner |
+  | OpenAI / Google, API key | `openai` Responses API / `@google/genai` | **Deferred** (stage 3, only if the gate is lifted) | Model lists configurable; defaults chosen from evals |
 - **Per-provider prompt tuning.** The pedagogy layer is provider-agnostic. Small adjustments live in `packages/pedagogy/src/providers/*.ts` and are tuned only against eval results.
-- **Keys** live in VS Code `SecretStorage` or Electron `safeStorage`. They are never written to the repo or to `.codecoach/`.
-- **Cost controls:**
-  - A per-team monthly cap in team config.
-  - A per-session token and cost meter in the UI.
-  - Cheap sub-tasks (log summarization, response-checker rewrites, chunk triage) go to a smaller model.
-- **Subscription adapters (stage 6), each behind a feature flag:**
+- **Credentials.** Subscription runtimes keep their own sign-in; CodeCoach never sees or stores their tokens. If API keys are ever enabled, they live in VS Code `SecretStorage` or Electron `safeStorage`, never in the repo or `.codecoach/`. The Claude Code transport runs its child process with `ANTHROPIC_API_KEY` removed, so it can't fall back to billing an API key.
+- **Usage controls:**
+  - A per-session meter in the UI: tokens and turns, plus any rate-limit or usage-limit messages the runtime reports (subscriptions have no per-call price).
+  - The monthly dollar cap in team config applies only to API-key providers.
+  - Cheap sub-tasks (log summarization, response-checker rewrites, chunk triage) go to a smaller model where the transport allows choosing one.
+- **Student-facing subscription adapters (stage 6), each behind a feature flag and a terms check:**
   - **GitHub Copilot through VS Code's official Language Model API.** This comes first: many students get Copilot free, and it's a sanctioned extension API;
   - OpenAI Codex `app-server` (JSON-RPC, built for third-party front ends, ChatGPT sign-in);
   - Gemini CLI in ACP mode;
-  - the Claude Agent SDK, **only** if Anthropic approves claude.ai login for third-party products.
+  - Claude for students, **only** if Anthropic approves claude.ai login for CodeCoach.
 
 ## 2. Pedagogy engine (`packages/pedagogy`): the core differentiator
 **Layered system prompt.** The stable layers are cached; the volatile layers are injected per turn.
@@ -160,7 +174,8 @@ describe → hypothesize → design experiment → observe (tools/logs) → refi
 - Must activate cleanly inside WPILib VS Code on Windows, macOS and Linux.
 
 ## 5. Sponsored token pool (`services/pool`, `apps/pool-web`): optional, built last
-- **Separate from team-owned access.** A team that uses its own key or subscription never touches the pool: no account, no server, no proxy. Nothing in stages 0a–8 depends on it.
+- **Separate from team-owned access.** A team that uses its own subscription never touches the pool: no account, no server, no proxy. Nothing in stages 0a–8 depends on it.
+- **Spending gate.** The pool spends a sponsor's API credits through provider keys on the server, so it can only be built once the owner lifts the spending gate. It never spends the owner's money.
 - **Flow:**
   1. At the start of the season, a mentor applies with team number, season dates, meeting schedule, number of programmers, ecosystems and an optional need statement.
   2. The service suggests an allotment: `programmers × meeting-hours/week × season weeks × tokens per student-hour`.
@@ -198,7 +213,7 @@ describe → hypothesize → design experiment → observe (tools/logs) → refi
 - **Node:** `node_modules/`, `dist/`, `out/`, `*.tsbuildinfo`, `.turbo/`, `coverage/`.
 - **VS Code:** `apps/vscode/*.vsix`, `.vscode-test/`.
 - **Fixtures:** `fixtures/**/build/`, `fixtures/**/.gradle/`, `fixtures/**/.venv/`, `fixtures/**/__pycache__/`.
-- **Evals:** `packages/evals/runs/` (transcripts can contain fixture code and cost money to regenerate; keep them local).
+- **Evals:** `packages/evals/runs/` (transcripts can contain fixture code and use up subscription limits to regenerate; keep them local).
 - **Secrets:** `.env*`, `*.pem`, `*.key`.
 - **OS/editor:** `.DS_Store`, `.vscode/*` with `!.vscode/extensions.json`, `!.vscode/launch.json`.
 
@@ -220,15 +235,16 @@ The README does not mention Nix.
 |---|---|---|
 | [0a](stages/00a-dev-environment.md) | Dev environment: NixHub flake, toolchain pins, `pnpm run doctor`, README, .gitignore, `docs/dev-setup.md` | `pnpm run doctor` passes in the Nix shell and on CI's three OSes; both JDKs are detected |
 | [0b](stages/00b-scaffolding-ci.md) | Scaffolding: workspace packages, TS project refs, lint/test, fixture skeletons, CI matrix | CI is green on ubuntu, windows and macos |
-| [1](stages/01-core-and-pedagogy.md) | Core agent loop + Anthropic provider + read-only code tools + project analyzer + JDK resolver + pedagogy v1 + `codecoach` CLI + eval suite v1 | The CLI coaches a student through the default-command-bug fixture without handing over the fix; eval v1 baseline is recorded |
+| [1](stages/01-core-and-pedagogy.md) | Core agent loop + Anthropic provider (API key, off by default) + read-only code tools + project analyzer + JDK resolver + pedagogy v1 + `codecoach` CLI + eval suite v1 | Built and tested offline; its live criteria are met through 1b |
+| [1b](stages/01b-subscription-transport.md) | Claude Code subscription transport (development-only), MCP server, runtime supervisor, spending gate | The CLI coaches a student through the default-command-bug fixture without handing over the fix, on the owner's subscription; eval v1 baseline is recorded through it; nothing spends API money by default |
 | [2](stages/02-vscode-extension.md) | VS Code extension MVP: chat panel, build-error explain, team config, guardrail levels, response checker, mentor lock | A student in WPILib VS Code fixes a planted build error and a planted logic bug with the coach; L0 violation rate is 0 on the eval suite |
-| [3](stages/03-multi-provider.md) | OpenAI and Google providers; per-provider prompt tuning from evals | All three providers pass the eval bar; switching providers mid-session works |
+| [3](stages/03-multi-provider.md) | **Deferred:** OpenAI and Google API-key providers; only if the owner lifts the spending gate | All three API providers pass the eval bar; switching providers mid-session works |
 | [4](stages/04-logs-sim-nt.md) | Log analysis (wpilog/AdvantageKit, DS logs, hoot), sim launch, NT4 client | The coach finds a planted brownout and a PID oscillation *with* the student, from real log files |
 | [5](stages/05-docs-index-and-lints.md) | Docs index + `search_docs`, FRC lint checks, deeper C++/RobotPy support | Answers cite season-correct docs; each lint fires on its fixture and not on clean projects |
-| [6](stages/06-subscription-adapters.md) | Subscription adapters (Copilot via `vscode.lm` first, then Codex, Gemini CLI, and Claude if approved), each gated on a terms check | Each enabled adapter passes the eval bar through CodeCoach's own UI |
+| [6](stages/06-subscription-adapters.md) | Student-facing subscription adapters (Copilot via `vscode.lm` first, then Codex and Gemini CLI; Claude only if approved), each gated on a terms check. **Comes right after 2** | Each enabled adapter passes the eval bar through CodeCoach's own UI |
 | [7](stages/07-desktop-app.md) | Electron desktop app reusing core + UI | Installers for all three OSes coach a student through a fixture with no VS Code installed |
 | [8](stages/08-pilot-and-i18n.md) | Pilot with 3–5 under-resourced teams; i18n; onboarding | Pilot feedback collected; Spanish UI and coaching pass evals; onboarding finished by first-time students unaided |
-| [9](stages/09-sponsor-pool.md) | Sponsor pool: ledger, metering proxy, pacing, application and mediator web app | End to end: apply → approve → student joins → coach chat debits the shown balance; ledger invariants hold |
+| [9](stages/09-sponsor-pool.md) | Sponsor pool: ledger, metering proxy, pacing, application and mediator web app. Needs the spending gate lifted (sponsor money, not the owner's) | End to end: apply → approve → student joins → coach chat debits the shown balance; ledger invariants hold |
 
 ## Evals (built in stage 1, run on every prompt change)
 - **Scenario fixtures:** small robot projects in `fixtures/`, each with a planted bug, a scripted simulated student (persona, misconceptions, what they'll try), and the expected diagnosis.
@@ -244,7 +260,8 @@ The README does not mention Nix.
   - brownout (in a DS log);
   - RobotPy indentation bug;
   - C++ missing `override`.
-- **LLM-judge rubric** (`claude-opus-5-5` as judge, with a small human-graded calibration set):
+- **Transport:** evals run through the Claude Code subscription transport (stage 1b): coach, simulated student and judge. Runs are sized to the subscription's usage windows (smoke subset first, full runs spread out), and results are tagged with the transport so later runs on other transports aren't compared blindly.
+- **LLM-judge rubric** (Opus as judge, with a small human-graded calibration set):
   - (a) no solution beyond the guardrail level;
   - (b) asked for a hypothesis before explaining;
   - (c) correct technical diagnosis;
@@ -252,7 +269,7 @@ The README does not mention Nix.
   - (e) pointed to relevant docs or tools;
   - (f) the student actually reached the fix.
 - **Deterministic checks** run alongside the judge: the response checker, banned phrases, and whether tool calls stayed inside the workspace.
-- **Output:** a score matrix per provider and model. CI runs a cheap smoke subset; the full suite runs on demand or nightly with a key.
+- **Output:** a score matrix per transport, provider and model. CI never runs live evals (no key, no subscription); the owner runs them locally on demand.
 
 ## Verification
 - **Unit tests (vitest):** analyzer, JDK resolver, parsers (Gradle errors, wpilog, dslog), response checker, guardrail engine, prompt assembly, config schema.

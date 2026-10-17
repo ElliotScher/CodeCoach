@@ -18,7 +18,7 @@ CodeCoach is a chat assistant built for FRC. It can read your robot code, build 
 - **Read logs together.** It analyzes match and simulation logs alongside you, rather than handing over a verdict.
 - **Warm, never condescending.** No "just", "simply" or "obviously". Being stuck is normal.
 - **Mentor-set guardrails.** A team mentor picks how much help the coach may give, from L0 (Socratic questions only, the default) to L3 (pair programmer that proposes diffs you review). The limit is enforced in code, not just in the prompt.
-- **Private by default.** No telemetry. Conversations stay on your machine, and API keys live in your OS's secret store.
+- **Private by default.** No telemetry. Conversations stay on your machine, and CodeCoach never sees or stores your AI account's sign-in.
 
 ## Supported ecosystems
 
@@ -29,7 +29,7 @@ Planned for v1:
 - **Python** (RobotPy)
 - **roboRIO** (JDK 17) and **SystemCore** (JDK 25) projects; CodeCoach picks the right JDK per project
 - Logs: `.wpilog` (including AdvantageKit), Driver Station `.dslog`/`.dsevents`, and CTRE `.hoot` (with CTRE's `owlet` installed)
-- LLM providers: Anthropic, OpenAI and Google, using your team's own API key
+- AI access: through subscriptions you may already have, signed in with the vendor's own app (GitHub Copilot first, then ChatGPT via Codex and Gemini via the Gemini CLI). No API keys or per-request billing
 
 ## Installing the extension
 
@@ -39,7 +39,7 @@ Not released yet. CodeCoach will ship first as a VS Code extension that runs ins
 
 Not available yet. The plan:
 
-- Each student or team adds an API key for their chosen provider; it is stored in the OS secret store, never in the repo.
+- Each student signs in to a subscription they're eligible for (for example GitHub Copilot through GitHub's education benefits) using that vendor's own sign-in. CodeCoach never handles the credentials.
 - A mentor (or student lead) runs *Set up CodeCoach for this team*, which writes `.codecoach/config.json` to the robot repo: guardrail level, allowed providers and models, monthly budget, language and reading level.
 - An optional mentor passphrase locks the guardrail level.
 
@@ -66,7 +66,10 @@ pnpm build && pnpm test
 | `pnpm dev:vscode` | Rebuild on change and open an Extension Development Host |
 | `pnpm package:vscode` | Build `apps/vscode/codecoach-<version>.vsix` |
 | `pnpm fixtures [build\|test] [name]` | Build or test the robot projects in `fixtures/` with the right JDK or Python venv |
-| `pnpm codecoach …` | Run the CLI from source |
+| `pnpm codecoach chat -p <project>` | Chat with the coach about a robot project (subscription transport arrives in stage 1b; see docs/dev-setup.md) |
+| `pnpm codecoach analyze <project>` | Show what CodeCoach detects about a project and which JDK it needs |
+| `pnpm codecoach eval [--smoke]` | Run the coaching evals (subscription transport arrives in stage 1b) |
+| `pnpm schema` | Regenerate the team config JSON schema |
 
 ## Roadmap and status
 
@@ -76,7 +79,7 @@ The full plan is in [docs/PLAN.md](docs/PLAN.md), with per-stage detail in [docs
 |---|---|---|
 | 0a | Dev environment: toolchain pins, `pnpm run doctor`, docs | Done |
 | 0b | Workspace scaffolding and CI | Done |
-| 1 | Core agent, pedagogy v1, CLI, evals | Not started |
+| 1 | Core agent, pedagogy v1, CLI, evals | In progress |
 | 2 | VS Code extension MVP | Not started |
 | 3 | OpenAI and Google providers | Not started |
 | 4 | Logs, simulation and NetworkTables | Not started |

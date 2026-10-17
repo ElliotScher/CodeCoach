@@ -1,0 +1,8 @@
+{
+  "controller": "roborio",
+  "language": "java",
+  "jdk": 17,
+  "wpilib": "2026.2.1",
+  "experimental": false,
+  "description": "Indexer.periodic sleeps 200 ms every loop, starving the 20 ms robot loop."
+}

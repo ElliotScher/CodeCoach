@@ -1,5 +1,7 @@
 # Stage 1: core agent, pedagogy v1, CLI and evals v1
 
+> **Spending amendment (2026-10-17).** No API-key spending for the rest of the project unless the owner lifts the gate after the feasibility checkpoint (PLAN.md, Decisions → Spending). Development and evals run on the owner's Claude Pro/Max subscription through Claude Code ([stage 1b](01b-subscription-transport.md)). This stage's code is built and tested offline; its live exit criteria (the CLI coaching session and the eval baseline) are met through 1b. The Anthropic API adapter stays in the code, off unless explicitly opted in.
+
 ## 1. Goal
 Build the coach itself, headless:
 - a provider-neutral agent loop with read-only FRC tools;
@@ -219,7 +221,7 @@ max_turns: 12
 **Runner and judge:**
 - **Simulated student:** `claude-sonnet-5-5`, given the persona. It sees only what a student would see: the chat, plus a file view of what it "edited". It applies the fix itself *only* when it has worked it out from the coach's hints.
 - **Judge:** `claude-opus-5-5` at high effort, scoring rubric items (a)–(f) from PLAN.md with structured output. Ten transcripts are hand-graded to check that the judge agrees with a human; target ≥ 80% per item.
-- **Deterministic metrics,** reported alongside: checker violations, tool calls outside the workspace (must be 0), number of turns to fix, and cost.
+- **Deterministic metrics,** reported alongside: checker violations, tool calls outside the workspace (must be 0), number of turns to fix, and usage (tokens; dollars only on the API path).
 - **Report:** `packages/evals/runs/<timestamp>/` (gitignored) plus a markdown summary. The baseline goes into `docs/measurements/evals-v1.md`.
 
 ### 4.11 Anthropic provider (`providers/src/anthropic.ts`)
@@ -234,41 +236,52 @@ max_turns: 12
 
 *Verify* every bullet above against the current `@anthropic-ai/sdk` docs at implementation time. The API surface moves fast.
 
+### Implementation notes (stage 1 build)
+Recorded while building; these supersede the design above where they differ.
+- **Verified for 2027:** the SystemCore template uses plugin id `org.wpilib.GradleRIO`, deploy target `getTargetTypeClass('SystemCore')`, `projectYear` like `2027_alpha7`, package `first.robot` and `CommandsV2.json`. The analyzer reads all of these.
+- **Verified for RobotPy:** `robotpy init` writes `[tool.robotpy]` with `robotpy_version`, `components` and `requires`. `python -m robotpy test` runs pyfrc's tests; `robotpy add-tests` creates them.
+- **JDK resolver:** also tries the WPILib install for the project's own season first. `pnpm run doctor` keeps its dependency-free copy of the lookup (`scripts/lib/jdk-probe.mjs`), because it runs before `pnpm install` and Node 22.12 can't import TypeScript.
+- **Anthropic provider:** `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`) is on for the models that support it; the Haiku rewriter doesn't send it. Tools set `eager_input_streaming`. The SDK's tolerant JSON parser returns a *silently truncated* object for malformed tool input rather than throwing (a provider test pins this), so the Zod check in the registry and the `max_tokens` stop check are the real guards. Input it can't parse at all throws an `AnthropicError`, and the turn is re-issued.
+- **Append-only history:** the corrective note from a failed attempt stays in history before the retried reply, because the reply was generated after it and Opus 5.5 ties thinking blocks to a byte-identical prefix. The discarded attempt itself is never stored.
+- **Checker:** at L0, pseudocode fences count as code. A banned phrase is a violation that triggers the retry, not an in-place fix; the eval rewrite rate will show whether that's too strict. Usage from attempts aborted mid-stream isn't billed to the meter yet (the stream ends before its usage arrives).
+- **Scenario format additions:** `smoke`, `student.knows`, `environment.hide_jdks` (the wrong-JDK scenario hides JDK 25 from the resolver), and `expected.fix_check: {file, pattern, absent}`, a deterministic check for rubric item (f). Each run copies the fixture without `scenario.yaml` and `fixture.json`, so the answer isn't readable by the coach or the student.
+- **Prompt files** are imported as text: esbuild's `text` loader in the bundles, a Vite plugin in tests, and `scripts/md-loader.mjs` for `pnpm codecoach` from source.
+
 ## 5. Task breakdown
 **PR 1: core types and loop**
-- [ ] M: `types.ts`, `provider.ts`, mock provider for tests
-- [ ] L: `agent.ts` loop with tool rounds, error results, abort, budget hook
-- [ ] M: `session-store.ts` (JSONL, append-only), `config.ts` + schema emit
+- [x] M: `types.ts`, `provider.ts`, mock provider for tests
+- [x] L: `agent.ts` loop with tool rounds, error results, abort, budget hook
+- [x] M: `session-store.ts` (JSONL, append-only), `config.ts` + schema emit
 
 **PR 2: Anthropic provider**
-- [ ] L: streaming, tool calls, caching, mid-conversation system messages, refusal/fallback, error mapping
-- [ ] S: recorded HTTP fixtures for tests (no live calls in unit tests)
+- [x] L: streaming, tool calls, caching, mid-conversation system messages, refusal/fallback, error mapping
+- [x] S: HTTP fixtures for tests (no live calls in unit tests). Synthetic for now (no key was available); `packages/providers/scripts/record-fixtures.mjs` replaces them with real recordings
 
 **PR 3: FRC read-only tools**
-- [ ] M: `workspace.ts` sandbox + tests (traversal, symlinks, denylist)
-- [ ] M: `analyzer.ts` + fixtures for each ecosystem
-- [ ] M: `jdk.ts` + tests (lookup order, mismatch diagnostic, `_X64` names, Windows paths)
-- [ ] M: `outline.ts` (web-tree-sitter grammars for Java, C++ and Python, loaded from WASM files)
-- [ ] M: `structure.ts` v1
-- [ ] M: `build.ts` + parsers with recorded logs
+- [x] M: `workspace.ts` sandbox + tests (traversal, symlinks, denylist)
+- [x] M: `analyzer.ts` + fixtures for each ecosystem
+- [x] M: `jdk.ts` + tests (lookup order, mismatch diagnostic, `_X64` names, Windows paths)
+- [x] M: `outline.ts` (web-tree-sitter grammars for Java, C++ and Python, loaded from WASM files)
+- [x] M: `structure.ts` v1
+- [x] M: `build.ts` + parsers with recorded logs
 
 **PR 4: pedagogy v1**
-- [ ] M: prompt files + `assemble.ts` (with cache-stability tests: same inputs → byte-identical prefix)
-- [ ] M: `state.ts` + `update_coaching_state` tool + transition tests
-- [ ] M: `checker.ts` + `phrases.ts` + tests
+- [x] M: prompt files + `assemble.ts` (with cache-stability tests: same inputs → byte-identical prefix)
+- [x] M: `state.ts` + `update_coaching_state` tool + transition tests
+- [x] M: `checker.ts` + `phrases.ts` + tests
 
 **PR 5: CLI**
-- [ ] M: `chat` REPL, `analyze`, slash commands
+- [x] M: `chat` REPL, `analyze`, slash commands
 
 **PR 6: evals v1**
-- [ ] L: runner, simulated student, judge, report
-- [ ] L: author 8 scenarios (§PLAN Evals list minus the log-based ones, which arrive in stage 4)
-- [ ] M: judge calibration set (10 hand-graded transcripts)
-- [ ] S: baseline run → `docs/measurements/evals-v1.md`
+- [x] L: runner, simulated student, judge, report
+- [x] L: author 8 scenarios (§PLAN Evals list minus the log-based ones, which arrive in stage 4, and minus C++ `override`, which needs the C++ fixture from stage 5)
+- [ ] M: judge calibration set (10 hand-graded transcripts). Tooling done (`codecoach eval grade`, `codecoach eval calibrate`). **Moved to 1b**: graded from runs on the subscription transport
+- [ ] S: baseline run → `docs/measurements/evals-v1.md`. **Moved to 1b**: recorded through the Claude Code subscription transport, not the API
 
 ## 6. Testing and verification
 - **Unit tests,** with no network: agent loop with a mock provider (tool errors, parallel results in one message, max rounds, abort); checker cases; state transitions; sandbox escapes; analyzer per fixture; JDK resolver matrix; build-log parsers; prompt-prefix stability.
-- **Live smoke test,** behind a key, not in default CI: one CLI turn against Anthropic shows a cache read on turn 2.
+- **Live smoke test,** behind a key, not in default CI: one CLI turn against Anthropic shows a cache read on turn 2. **Off by policy** while the spending gate is closed; the test stays in the repo, skipped unless a key and `CODECOACH_LIVE=1` are both set.
 - **Manual:** `pnpm codecoach chat --project fixtures/java-roborio-default-command-bug`. Play a confused student: the coach asks for a hypothesis, points to `RobotContainer`, and never writes `setDefaultCommand(...)` for you at L0.
 - **Evals:** baseline recorded. L0 checker violations shown to the student: 0. The judge agrees with the human graders at least 80% of the time.
 
@@ -279,7 +292,7 @@ max_turns: 12
 | The checker is too strict and blocks quoting the student's own code | Exclude lines that exist in files read this session; eval transcripts drive the thresholds |
 | Retry and rewrite double the cost of some turns | Track the rewrite rate per level; it should go down as the prompts improve. The rewrite uses a cheap model |
 | Simulated students are unrealistic (too smart, or too compliant) | Personas include misconceptions and "will_try" lists; check against real student transcripts in stage 8 |
-| Eval cost | Smoke subset in CI (2 scenarios, 1 provider); full runs on demand; cost reported per run |
+| Eval cost | No API spending: evals run on the owner's subscription (1b). Smoke subset first; full runs on demand; usage reported per run |
 
 ## 8. Open questions
 - Should `run_build` need the student to confirm every time, or once per session? Start with once per session, and revisit after the pilot.

@@ -21,7 +21,8 @@
     "dev:vscode": "pnpm --filter ./apps/vscode run dev",
     "package:vscode": "pnpm --filter ./apps/vscode run package",
     "fixtures": "node scripts/fixtures.mjs",
-    "codecoach": "node --conditions=@codecoach/source --import tsx apps/cli/src/main.ts",
+    "codecoach": "node --conditions=@codecoach/source --import tsx --import ./scripts/md-loader.mjs apps/cli/src/main.ts",
+    "schema": "node --import tsx packages/core/scripts/emit-schema.ts",
     "clean": "tsc -b --clean",
     "doctor": "node scripts/doctor.mjs"
   },

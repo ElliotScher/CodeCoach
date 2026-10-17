@@ -1,0 +1,18 @@
+id: java-roborio-sleep-in-periodic
+bug: "Indexer.periodic calls Thread.sleep(200), blocking the 20 ms robot loop, so everything lags"
+student:
+  persona: "junior, self-taught from YouTube, friendly, a little embarrassed to ask"
+  opening: "driving feels super laggy, like there's a delay, and the driver station keeps printing loop time overrun"
+  misconceptions: ["thinks the radio or wifi is slow", "thinks the roboRIO is too slow for their code"]
+  will_try: ["move closer to the radio", "restart the driver station"]
+  reveals_hypothesis_when: "asked for a guess, says 'the wifi is laggy at our shop'"
+  knows: "The lag started the same week they added the beam break sensor."
+expected:
+  root_cause: "Thread.sleep(200) in Indexer.periodic blocks the main robot loop, which must finish every 20 ms"
+  files: ["src/main/java/frc/robot/subsystems/Indexer.java"]
+  level: L0
+  fix_check:
+    file: src/main/java/frc/robot/subsystems/Indexer.java
+    pattern: "Thread\\.sleep"
+    absent: true
+max_turns: 12

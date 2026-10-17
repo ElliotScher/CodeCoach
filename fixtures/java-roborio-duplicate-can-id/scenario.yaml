@@ -1,0 +1,18 @@
+id: java-roborio-duplicate-can-id
+bug: "IntakeConstants.kCanId is 2, the same CAN ID as the right drive motor, so commands to one controller drive both"
+student:
+  persona: "sophomore, new to CAN wiring, careful and polite"
+  opening: "when we drive, the right side is jerky and sometimes the intake rollers spin even when nobody is pressing the bumper"
+  misconceptions: ["thinks a wire is loose", "thinks the bumper button is stuck"]
+  will_try: ["reseat the CAN cables", "test with a different controller"]
+  reveals_hypothesis_when: "asked, guesses 'a loose CAN wire'"
+  knows: "The REV Hardware Client showed only two SPARK MAXes on the bus even though there are three on the robot."
+expected:
+  root_cause: "Two SPARK MAXes share CAN ID 2 (right drive and intake), so they fight over the same messages; each device needs a unique ID"
+  files: ["src/main/java/frc/robot/Constants.java"]
+  level: L0
+  fix_check:
+    file: src/main/java/frc/robot/Constants.java
+    pattern: "kCanId\\s*=\\s*2\\s*;"
+    absent: true
+max_turns: 12

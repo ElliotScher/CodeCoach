@@ -15,6 +15,11 @@
     "build": "node esbuild.mjs"
   },
   "dependencies": {
+    "@codecoach/core": "workspace:*",
+    "@codecoach/evals": "workspace:*",
+    "@codecoach/frc": "workspace:*",
+    "@codecoach/pedagogy": "workspace:*",
+    "@codecoach/providers": "workspace:*",
     "commander": "15.0.0"
   }
 }

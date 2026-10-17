@@ -1,6 +1,8 @@
-// Placeholder until stage 1 fills this package in.
-
-import { PACKAGE_NAME as CORE } from "@codecoach/core";
+export * from "./assemble.js";
+export * from "./checker.js";
+export * from "./coach.js";
+export * from "./phrases.js";
+export * from "./prompts.js";
+export * from "./state.js";
 
 export const PACKAGE_NAME = "@codecoach/pedagogy";
-export const DEPENDS_ON: readonly string[] = [CORE];

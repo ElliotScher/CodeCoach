@@ -1,0 +1,8 @@
+{
+  "controller": "roborio",
+  "language": "java",
+  "jdk": 17,
+  "wpilib": "2026.2.1",
+  "experimental": false,
+  "description": "RunIntake requires the drivetrain, so holding the intake button cancels driving."
+}

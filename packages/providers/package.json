@@ -16,6 +16,8 @@
     "dist"
   ],
   "dependencies": {
-    "@codecoach/core": "workspace:*"
+    "@anthropic-ai/sdk": "0.135.0",
+    "@codecoach/core": "workspace:*",
+    "zod": "4.6.7"
   }
 }

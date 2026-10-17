@@ -1,0 +1,8 @@
+{
+  "controller": "roborio",
+  "language": "java",
+  "jdk": 17,
+  "wpilib": "2026.2.1",
+  "experimental": false,
+  "description": "The mirrored right side isn't inverted, so pushing forward spins the robot."
+}

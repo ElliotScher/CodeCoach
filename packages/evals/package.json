@@ -16,9 +16,12 @@
     "dist"
   ],
   "dependencies": {
+    "@anthropic-ai/sdk": "0.135.0",
     "@codecoach/core": "workspace:*",
-    "@codecoach/providers": "workspace:*",
+    "@codecoach/frc": "workspace:*",
     "@codecoach/pedagogy": "workspace:*",
-    "@codecoach/frc": "workspace:*"
+    "@codecoach/providers": "workspace:*",
+    "yaml": "2.9.1",
+    "zod": "4.6.7"
   }
 }

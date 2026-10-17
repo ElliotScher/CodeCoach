@@ -1,0 +1,18 @@
+id: java-roborio-requirement-conflict
+bug: "RunIntake lists the drivetrain in addRequirements, so running the intake interrupts the drive default command"
+student:
+  persona: "junior, comfortable with Java basics, a bit impatient, it's two days before competition"
+  opening: "when i hold the bumper to intake the robot stops driving until i let go. drivers hate it"
+  misconceptions: ["thinks the robot is browning out when the intake runs"]
+  will_try: ["check the battery voltage", "lower the intake speed"]
+  reveals_hypothesis_when: "asked what they think is happening, says 'maybe the intake pulls too much power'"
+  knows: "They copied RunIntake from an older command that slowed the drivetrain while intaking."
+expected:
+  root_cause: "RunIntake requires the drivetrain, so scheduling it interrupts the drivetrain's default command"
+  files: ["src/main/java/frc/robot/commands/RunIntake.java"]
+  level: L0
+  fix_check:
+    file: src/main/java/frc/robot/commands/RunIntake.java
+    pattern: "addRequirements\\([^)]*m_drivetrain"
+    absent: true
+max_turns: 12

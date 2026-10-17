@@ -5,4 +5,8 @@ packages:
 allowBuilds:
   "@vscode/vsce-sign": false
   esbuild: false
+  tree-sitter-c: false
+  tree-sitter-cpp: false
+  tree-sitter-java: false
+  tree-sitter-python: false
   unrs-resolver: false

@@ -1,5 +1,7 @@
 # Stage 6: subscription adapters
 
+> **Spending amendment (2026-10-17).** With API-key spending off (PLAN.md, Decisions → Spending), these adapters are the student-facing providers, and this stage moves up to **right after stage 2**. The MCP server and runtime supervisor are built earlier, in [stage 1b](01b-subscription-transport.md). The eval bar that stage 3 would have set is defined here, starting from the 1b baseline.
+
 ## 1. Goal
 Let someone who already pays for a consumer AI subscription (ChatGPT, Gemini, Claude) use it to power CodeCoach, **inside CodeCoach's own chat window**, with CodeCoach's tools, pedagogy and checker. The vendor's official runtime runs headlessly as the transport.
 
@@ -8,18 +10,18 @@ An adapter ships **only** after a written check confirms that the vendor's terms
 **Exit criterion (from PLAN.md):** each enabled adapter passes the stage 3 eval bar through CodeCoach's own UI.
 
 ## 2. Depends on / unblocks
-- **Depends on:** 1 (tool registry), 2 (UI), 3 (translation layers, eval bar).
-- **Unblocks:** nothing depends on it. It widens access for teams without API budgets.
+- **Depends on:** 1 (tool registry), 1b (MCP server, runtime supervisor, Claude Code transport patterns), 2 (UI). Not stage 3, which is deferred: the eval bar is defined here instead, from the 1b baseline.
+- **Unblocks:** 8 (pilot teams use these adapters). This is now **the** student-facing path, not an extra.
 
 ## 3. Deliverables
 ```
-packages/mcp-server/            # CodeCoach's tool registry exposed as an MCP server (stdio)
+packages/mcp-server/            # built in stage 1b, reused here
 packages/providers/src/subscriptions/
   codex.ts                      # OpenAI Codex app-server adapter (JSON-RPC over stdio)
   gemini-acp.ts                 # Gemini CLI in ACP mode
   claude-agent.ts               # Claude Agent SDK, only if approved (§4.5)
   vscode-lm.ts                  # GitHub Copilot via VS Code's Language Model API (§4.6)
-  runtime.ts                    # spawn/supervise child runtimes, detect installs
+  runtime.ts                    # built in stage 1b, reused here
 docs/policy/subscriptions.md    # the terms check, per vendor, dated, with sources (§4.1)
 ```
 
@@ -62,7 +64,7 @@ An adapter's feature flag (`codecoach.experimental.subscriptions.<vendor>`) stay
 - **Data warning.** Consumer Google-login usage may fall under terms that allow product improvement using the content (*verify*). The privacy banner must say so plainly, and recommend paid or education access for students.
 
 ### 4.5 Claude (Agent SDK)
-- **Policy.** Anthropic currently does not allow third-party products to offer claude.ai subscription login without prior approval. This adapter is built **only if** Anthropic grants approval for CodeCoach. Otherwise Claude stays API-key only, which stage 1 already supports.
+- **Policy.** Anthropic currently does not allow third-party products to offer claude.ai subscription login without prior approval. This student-facing adapter is built **only if** Anthropic grants approval for CodeCoach. Otherwise students can't use Claude through CodeCoach while the spending gate is closed: the owner's Claude Code transport (1b) is development-only and never shipped.
 - **If approved:** `@anthropic-ai/claude-agent-sdk` `query()`, with:
   - a custom system prompt;
   - built-in edit, write and bash tools disallowed;
@@ -86,11 +88,7 @@ This may be the **most equitable** subscription path. Many students can get Copi
 **PR 0: terms gate**
 - [ ] M: `docs/policy/subscriptions.md` research + vendor emails where unclear (blocks everything else per vendor)
 
-**PR 1: MCP server**
-- [ ] M: `packages/mcp-server` over the stage 1 registry, level-aware, with an MCP conformance test
-
-**PR 2: runtime supervisor**
-- [ ] M: `runtime.ts` (spawn, health check, restart, version detection, clean shutdown)
+**PR 1 and PR 2 (MCP server, runtime supervisor):** moved to stage 1b.
 
 **PR 2b: Copilot via `vscode.lm`** (first, if the gate passes)
 - [ ] M: `vscode-lm.ts` + consent flow + tool mapping + eval run
@@ -123,7 +121,7 @@ This may be the **most equitable** subscription path. Many students can get Copi
 | The terms forbid this, or change later | Terms gate per vendor, re-checked each release; the flag can be switched off remotely by shipping an update |
 | Runtimes change their protocols often | Version pinning per adapter; detect and refuse unsupported versions with a clear message |
 | A runtime's built-in tools bypass the guardrails | Disable them by configuration, auto-deny approvals, test it; refuse to run if this can't be confirmed |
-| Age limits make the path unusable for students | Say so up front; position it as a mentor or 18+ option; the API-key path stays the main one |
+| Age limits make the path unusable for students | Say so up front; position it as a mentor or 18+ option; Copilot through `vscode.lm` (often free for students) is the first adapter for this reason |
 | The runtime's own system prompt fights the pedagogy prompt | Canary check, evals, per-adapter prompt deltas |
 
 ## 8. Open questions

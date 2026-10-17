@@ -1,0 +1,4 @@
+> Task :compileFrcUserProgramReleaseExecutableFrcUserProgramCpp FAILED
+Robot.cpp
+C:\Users\student\robot\src\main\cpp\Robot.cpp(12,8): error C3668: 'Robot::TeleopPeriodc': method with override specifier 'override' did not override any base class methods
+C:\Users\student\robot\src\main\cpp\Robot.cpp(14,17): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data

@@ -72,4 +72,22 @@ export default defineConfig(
     rules: { "no-restricted-imports": ["error", { patterns: [noDeepImports] }] },
   },
   ...boundaries,
+  {
+    // packages/ui runs in a browser; core's runtime uses Node built-ins.
+    files: ["packages/ui/**"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@codecoach/core",
+              message: "packages/ui runs in a browser: import core's types only (import type).",
+              allowTypeImports: true,
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

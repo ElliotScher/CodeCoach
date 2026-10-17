@@ -1,0 +1,17 @@
+id: java-roborio-degrees-radians
+bug: "ArmFeedforward.calculate is given the arm angle in degrees, but it expects radians, so the gravity term is wrong"
+student:
+  persona: "senior, took AP Computer Science, confident, writes long messages, has tuned PID before"
+  opening: "Our arm is weird. At some angles it holds perfectly but at others it sags or jumps up, and retuning kG doesn't fix it everywhere. I've spent two meetings on this."
+  misconceptions: ["thinks kG just needs more tuning", "suspects the encoder is slipping"]
+  will_try: ["retune kG", "check the encoder mount"]
+  reveals_hypothesis_when: "asked, says 'I think the encoder is slipping on the shaft'"
+  knows: "The encoder reading matches a protractor at several angles."
+expected:
+  root_cause: "ArmFeedforward expects the angle in radians; passing degrees makes cos(angle) wrong, so the gravity compensation is wrong at most angles"
+  files: ["src/main/java/frc/robot/subsystems/Arm.java"]
+  level: L0
+  fix_check:
+    file: src/main/java/frc/robot/subsystems/Arm.java
+    pattern: "(Units\\.degreesToRadians|Math\\.toRadians)\\("
+max_turns: 12

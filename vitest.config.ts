@@ -22,6 +22,8 @@ export default defineConfig({
   },
   test: {
     include: ["{packages,apps}/*/test/**/*.test.{ts,tsx}"],
+    // Windows CI runners are slow on first file-system access (the first copy in a file took ~6 s).
+    testTimeout: 30_000,
     // The VS Code integration tests run inside VS Code via `pnpm test:vscode`.
     exclude: [...configDefaults.exclude, "apps/vscode/test/**"],
   },

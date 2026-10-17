@@ -39,7 +39,11 @@ export class Workspace {
   private readonly readFiles = new Set<string>();
 
   constructor(root: string) {
-    this.root = realpathSync(path.resolve(root));
+    // The native realpath, like fs.promises.realpath used in resolve(): on
+    // Windows the JavaScript realpathSync keeps 8.3 short names
+    // (C:\Users\RUNNER~1) while the native one expands them, and mixing the
+    // two makes every path look like it leaves the root.
+    this.root = realpathSync.native(path.resolve(root));
   }
 
   /** Workspace-relative POSIX path for an absolute path inside the root. */

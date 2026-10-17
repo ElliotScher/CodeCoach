@@ -1,0 +1,12 @@
+# Check out with LF everywhere (Prettier enforces LF; Windows git would
+# otherwise convert to CRLF via core.autocrlf).
+* text=auto eol=lf
+
+# Windows batch files need CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binaries.
+*.jar binary
+*.png binary
+*.vsix binary

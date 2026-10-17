@@ -8,7 +8,8 @@ import tseslint from "typescript-eslint";
 // Keep this in sync with the "dependencies" in each package.json.
 const ALLOWED_DEPS = {
   core: [],
-  providers: ["core"],
+  "mcp-server": ["core"],
+  providers: ["core", "mcp-server"],
   pedagogy: ["core"],
   frc: ["core"],
   ui: ["core"],

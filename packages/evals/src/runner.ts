@@ -5,21 +5,51 @@ import path from "node:path";
 
 import Anthropic from "@anthropic-ai/sdk";
 
-import { BudgetMeter, Workspace } from "@codecoach/core";
-import type { AgentEvent, ChatProvider, Effort, GuardrailLevel, Violation } from "@codecoach/core";
+import { BudgetMeter, Workspace, ZERO_USAGE, addUsage } from "@codecoach/core";
+import type {
+  AgentEvent,
+  ChatProvider,
+  ConversationRuntime,
+  Effort,
+  GuardrailLevel,
+  Usage,
+  UsageLimitInfo,
+  Violation,
+} from "@codecoach/core";
 import { analyzeProject, frcTools, renderProjectSummary } from "@codecoach/frc";
 import { Coach, checkResponse } from "@codecoach/pedagogy";
-import { ANTHROPIC_CHEAP_MODEL, AnthropicProvider, DEFAULT_ANTHROPIC_MODEL } from "@codecoach/providers";
+import type { CoachTransport } from "@codecoach/pedagogy";
+import {
+  ANTHROPIC_CHEAP_MODEL,
+  AnthropicProvider,
+  ClaudeCodeProvider,
+  ClaudeCodeRuntime,
+  DEFAULT_ANTHROPIC_MODEL,
+  assertApiSpendAllowed,
+  assertSubscriptionAuth,
+} from "@codecoach/providers";
 
-import { judgeTranscript } from "./judge.js";
-import type { JudgeResult, TranscriptTurn } from "./judge.js";
+import { judgeTranscript, judgeWithClaudeCode } from "./judge.js";
+import type { JudgeInput, JudgeResult, TranscriptTurn } from "./judge.js";
+import { loadRun } from "./report.js";
 import { fixCheckPasses } from "./scenario.js";
 import type { Scenario } from "./scenario.js";
 import { SIMULATED_STUDENT_MODEL, SimulatedStudent } from "./student.js";
 import type { StudentEdit } from "./student.js";
 
+/**
+ * How the eval reaches models. `claude-code` (the default) runs coach, student
+ * and judge on the owner's Claude subscription. `api` bills an API key and
+ * needs the spending gate opened (PLAN.md, Decisions → Spending).
+ */
+export type EvalTransport =
+  | { kind: "claude-code"; coachModel?: string; studentModel?: string; judgeModel?: string }
+  | { kind: "api"; allowApiSpend: boolean; model?: string };
+
 export interface ScenarioResult {
   id: string;
+  /** "claude-code" or "api"; results on different transports aren't directly comparable. */
+  transport: string;
   provider: string;
   model: string;
   level: GuardrailLevel;
@@ -42,35 +72,46 @@ export interface ScenarioResult {
     fixCheck: boolean | null;
     /** Coach turn after which the fix check first passed. */
     turnsToFix: number | null;
+    tokens: { coach: Usage; student: Usage; judge: Usage };
+    /** Dollars billed: always 0 on a subscription. */
     costUsd: { coach: number; student: number; judge: number; total: number };
   };
   judge: JudgeResult;
   error?: string;
 }
 
+/** Per-scenario model access; tests inject scripted ones. */
+export interface EvalModels {
+  coach(): CoachTransport & { rewriter?: { provider: ChatProvider; model: string } };
+  student(): { provider: ChatProvider; model?: string } | { runtime: ConversationRuntime };
+  judge(input: JudgeInput): Promise<JudgeResult>;
+}
+
 export interface RunOptions {
   scenarios: Scenario[];
   /** Where runs/<timestamp>/ is written. */
   outDir: string;
-  model?: string;
+  transport?: EvalTransport;
   effort?: Effort;
-  /** Stop starting new scenarios once total spend reaches this. */
+  /** API transport only: stop starting new scenarios once this much is billed. */
   maxUsd?: number;
-  /** Injected for tests; default to the real Anthropic API. */
-  coachProvider?: ChatProvider;
-  studentProvider?: ChatProvider;
-  judge?: typeof judgeTranscript;
-  judgeClient?: Anthropic;
+  /** Continue a run that stopped (usage limit, Ctrl+C): finished scenarios are kept. */
+  resumeDir?: string;
+  /** Overrides the transport's models (tests). */
+  models?: EvalModels;
   log?: (line: string) => void;
 }
 
 export interface EvalRun {
   dir: string;
   startedAt: string;
+  transport: string;
   model: string;
   results: ScenarioResult[];
   skipped: string[];
   totalUsd: number;
+  /** Set when the subscription's usage limit stopped the run; resume with --resume. */
+  stoppedForLimit?: UsageLimitInfo;
 }
 
 const SANDBOX_REFUSAL = /outside the project folder|links outside the project folder/;
@@ -118,18 +159,59 @@ function describeCall(name: string, input: unknown): string {
   return arg ? `${name}(${String(arg)})` : name;
 }
 
+/** The real models for a transport. */
+export function transportModels(
+  transport: EvalTransport,
+  effort: Effort | undefined,
+  onLimit: (i: UsageLimitInfo) => void,
+): EvalModels {
+  if (transport.kind === "claude-code") {
+    return {
+      coach: () => {
+        const model = transport.coachModel ?? "opus";
+        return {
+          runtime: new ClaudeCodeRuntime({ model, effort: effort ?? "medium" }),
+          model,
+          rewriter: { provider: new ClaudeCodeProvider(), model: "haiku" },
+        };
+      },
+      student: () => ({ runtime: new ClaudeCodeRuntime({ model: transport.studentModel ?? "sonnet", effort: "low" }) }),
+      judge: (input) => judgeWithClaudeCode({ ...input, model: transport.judgeModel ?? "opus" }),
+    };
+  }
+  assertApiSpendAllowed("API evals", transport.allowApiSpend);
+  void onLimit;
+  return {
+    coach: () => {
+      const provider = new AnthropicProvider({ allowApiSpend: true });
+      return {
+        provider,
+        model: transport.model ?? DEFAULT_ANTHROPIC_MODEL,
+        rewriter: { provider, model: ANTHROPIC_CHEAP_MODEL },
+      };
+    },
+    student: () => ({ provider: new AnthropicProvider({ allowApiSpend: true }), model: SIMULATED_STUDENT_MODEL }),
+    judge: (input) => judgeTranscript(new Anthropic(), input),
+  };
+}
+
 export async function runScenario(
   scenario: Scenario,
-  opts: Omit<RunOptions, "scenarios" | "outDir">,
+  opts: {
+    models: EvalModels;
+    transport: string;
+    effort?: Effort;
+    log?: (line: string) => void;
+    limit?: () => UsageLimitInfo | null;
+  },
 ): Promise<ScenarioResult> {
-  const model = opts.model ?? DEFAULT_ANTHROPIC_MODEL;
   const level = scenario.expected.level;
   const projectDir = copyProject(scenario);
   const restore = hideJdks(scenario.environment.hide_jdks);
-  const coachProvider = opts.coachProvider ?? new AnthropicProvider();
-  const studentProvider = opts.studentProvider ?? coachProvider;
   const coachBudget = new BudgetMeter();
   const studentBudget = new BudgetMeter();
+  let coachTokens: Usage = ZERO_USAGE;
+  let studentTokens: Usage = ZERO_USAGE;
   const transcript: TranscriptTurn[] = [];
   let guardViolations = 0;
   const violationKinds: string[] = [];
@@ -143,11 +225,11 @@ export async function runScenario(
   let error: string | undefined;
 
   const workspace = new Workspace(projectDir);
-  const studentWorkspace = new Workspace(projectDir);
   const summary = await analyzeProject(new Workspace(projectDir));
+  const coachModels = opts.models.coach();
+  const { rewriter, ...coachTransport } = coachModels;
   const coach = new Coach({
-    provider: coachProvider,
-    model,
+    ...coachTransport,
     effort: opts.effort ?? "medium",
     level,
     workspace,
@@ -156,12 +238,11 @@ export async function runScenario(
     profile: { language: "en", readingLevel: "standard" },
     confirm: async () => true,
     budget: coachBudget,
-    rewriter: { provider: coachProvider, model: ANTHROPIC_CHEAP_MODEL },
+    ...(rewriter ? { rewriter } : {}),
   });
   const student = new SimulatedStudent(scenario, {
-    provider: studentProvider,
-    model: SIMULATED_STUDENT_MODEL,
-    workspace: studentWorkspace,
+    ...opts.models.student(),
+    workspace: new Workspace(projectDir),
     budget: studentBudget,
   });
 
@@ -183,6 +264,7 @@ export async function runScenario(
         } else if (ev.type === "tool_end" && ev.result.isError && SANDBOX_REFUSAL.test(ev.result.content)) {
           outsideWorkspaceCalls++;
         } else if (ev.type === "turn_end") {
+          coachTokens = addUsage(coachTokens, ev.usage);
           violations.push(...ev.violations);
           if (ev.outcome === "rewritten") rewrites++;
           if (ev.outcome === "error" || ev.outcome === "refused") {
@@ -194,20 +276,22 @@ export async function runScenario(
       coachTurns++;
       guardViolations += violations.length ? 1 : 0;
       violationKinds.push(...violations.map((v) => v.kind));
-      if (
-        !checkResponse(text, {
-          level,
-          attempts: coach.state.state.attempts.length,
-          isStudentLine: (l) => workspace.hasSeenLine(l),
-        }).ok
-      ) {
-        violationsShown++;
-      }
+      const shownCheck = checkResponse(text, {
+        level,
+        attempts: coach.state.state.attempts.length,
+        isStudentLine: (l) => workspace.hasSeenLine(l),
+      });
+      if (!shownCheck.ok) violationsShown++;
       transcript.push({ speaker: "coach", text, ...(tools.length ? { tools } : {}) });
       opts.log?.(`  coach ${coachTurns}: ${text.slice(0, 100).replace(/\n/g, " ")}${text.length > 100 ? "…" : ""}`);
       if (error || wrapUp) break;
 
       const reply = await student.reply(text);
+      for (const ev of reply.events) if (ev.type === "turn_end") studentTokens = addUsage(studentTokens, ev.usage);
+      if (opts.limit?.()?.status === "rejected") {
+        error = "usage limit reached";
+        break;
+      }
       transcript.push({
         speaker: "student",
         text: reply.text + (reply.status === "fixed" ? " [FIXED]" : reply.status === "gave_up" ? " [GIVE UP]" : ""),
@@ -228,22 +312,23 @@ export async function runScenario(
     studentStatus = "error";
   } finally {
     restore();
+    await coach.close().catch(() => undefined);
+    await student.close().catch(() => undefined);
   }
 
   const fixCheck = await fixCheckPasses(scenario, projectDir);
-  const judge = await (opts.judge ?? judgeTranscript)(opts.judgeClient ?? new Anthropic(), {
-    scenario,
-    transcript,
-    fixCheck,
-    level,
-  });
+  const judge =
+    opts.limit?.()?.status === "rejected"
+      ? { output: null, usage: ZERO_USAGE, costUsd: 0, error: "skipped: usage limit reached" }
+      : await opts.models.judge({ scenario, transcript, fixCheck, level });
   rmSync(projectDir, { recursive: true, force: true });
   const coachUsd = coachBudget.sessionCostUsd;
   const studentUsd = studentBudget.sessionCostUsd;
   return {
     id: scenario.id,
-    provider: coachProvider.id,
-    model,
+    transport: opts.transport,
+    provider: "runtime" in coachTransport ? coachTransport.runtime.id : coachTransport.provider.id,
+    model: coachTransport.model ?? "?",
     level,
     promptHash: coach.prompt.hash,
     promptVersions: coach.prompt.versions,
@@ -260,6 +345,7 @@ export async function runScenario(
       toolCalls,
       fixCheck,
       turnsToFix,
+      tokens: { coach: coachTokens, student: studentTokens, judge: judge.usage },
       costUsd: {
         coach: coachUsd,
         student: studentUsd,
@@ -273,24 +359,94 @@ export async function runScenario(
 }
 
 export async function runEvals(opts: RunOptions): Promise<EvalRun> {
+  const transport: EvalTransport = opts.transport ?? { kind: "claude-code" };
+  let lastLimit: UsageLimitInfo | null = null;
+  const onLimit = (i: UsageLimitInfo) => {
+    lastLimit = i;
+    if (i.status !== "allowed")
+      opts.log?.(
+        `  (subscription: ${i.status}${i.utilization !== undefined ? `, ${Math.round(i.utilization * 100)}% used` : ""})`,
+      );
+  };
+  if (!opts.models && transport.kind === "claude-code") assertSubscriptionAuth();
+  const models = withLimitTracking(opts.models ?? transportModels(transport, opts.effort, onLimit), onLimit);
+
   const startedAt = new Date().toISOString();
-  const dir = path.join(opts.outDir, startedAt.replace(/[:.]/g, "-"));
+  const dir = opts.resumeDir ?? path.join(opts.outDir, startedAt.replace(/[:.]/g, "-"));
   await fs.mkdir(dir, { recursive: true });
-  const results: ScenarioResult[] = [];
+  const results: ScenarioResult[] = opts.resumeDir ? await loadRun(opts.resumeDir).catch(() => []) : [];
+  const done = new Set(results.map((r) => r.id));
   const skipped: string[] = [];
-  let totalUsd = 0;
+  let totalUsd = results.reduce((n, r) => n + r.metrics.costUsd.total, 0);
+  let stoppedForLimit: UsageLimitInfo | undefined;
+
   for (const scenario of opts.scenarios) {
-    if (opts.maxUsd !== undefined && totalUsd >= opts.maxUsd) {
+    if (done.has(scenario.id)) continue;
+    if (stoppedForLimit || (transport.kind === "api" && opts.maxUsd !== undefined && totalUsd >= opts.maxUsd)) {
       skipped.push(scenario.id);
       continue;
     }
     opts.log?.(`▶ ${scenario.id}`);
-    const r = await runScenario(scenario, opts);
+    const r = await runScenario(scenario, {
+      models,
+      transport: transport.kind,
+      ...(opts.effort ? { effort: opts.effort } : {}),
+      ...(opts.log ? { log: opts.log } : {}),
+      limit: () => lastLimit,
+    });
+    if ((lastLimit as UsageLimitInfo | null)?.status === "rejected") {
+      // Don't keep a scenario the limit cut short; --resume runs it again.
+      stoppedForLimit = lastLimit!;
+      skipped.push(scenario.id);
+      opts.log?.(`  → stopped: the subscription's usage limit was reached`);
+      continue;
+    }
     totalUsd += r.metrics.costUsd.total;
     results.push(r);
     await fs.writeFile(path.join(dir, `${scenario.id}.json`), `${JSON.stringify(r, null, 2)}\n`);
-    opts.log?.(`  → ${r.studentStatus}, fix check ${r.metrics.fixCheck}, $${r.metrics.costUsd.total.toFixed(3)}`);
+    const used =
+      r.metrics.tokens.coach.outputTokens + r.metrics.tokens.student.outputTokens + r.metrics.tokens.judge.outputTokens;
+    opts.log?.(
+      `  → ${r.studentStatus}, fix check ${r.metrics.fixCheck}, ${used} output tokens${r.metrics.costUsd.total ? `, $${r.metrics.costUsd.total.toFixed(3)}` : ""}`,
+    );
   }
-  const run: EvalRun = { dir, startedAt, model: opts.model ?? DEFAULT_ANTHROPIC_MODEL, results, skipped, totalUsd };
-  return run;
+  const model =
+    transport.kind === "claude-code" ? (transport.coachModel ?? "opus") : (transport.model ?? DEFAULT_ANTHROPIC_MODEL);
+  return {
+    dir,
+    startedAt,
+    transport: transport.kind,
+    model,
+    results,
+    skipped,
+    totalUsd,
+    ...(stoppedForLimit ? { stoppedForLimit } : {}),
+  };
+}
+
+/** Wraps runtimes so usage-limit reports reach the runner. */
+function withLimitTracking(models: EvalModels, onLimit: (i: UsageLimitInfo) => void): EvalModels {
+  const track = (runtime: ConversationRuntime): ConversationRuntime => ({
+    id: runtime.id,
+    start: (o) => runtime.start(o),
+    async *turn(text, signal) {
+      for await (const ev of runtime.turn(text, signal)) {
+        if (ev.type === "limit") onLimit(ev.info);
+        yield ev;
+      }
+    },
+    interrupt: () => runtime.interrupt(),
+    close: () => runtime.close(),
+  });
+  return {
+    coach: () => {
+      const c = models.coach();
+      return "runtime" in c ? { ...c, runtime: track(c.runtime) } : c;
+    },
+    student: () => {
+      const s = models.student();
+      return "runtime" in s ? { runtime: track(s.runtime) } : s;
+    },
+    judge: models.judge,
+  };
 }

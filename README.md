@@ -66,9 +66,9 @@ pnpm build && pnpm test
 | `pnpm dev:vscode` | Rebuild on change and open an Extension Development Host |
 | `pnpm package:vscode` | Build `apps/vscode/codecoach-<version>.vsix` |
 | `pnpm fixtures [build\|test] [name]` | Build or test the robot projects in `fixtures/` with the right JDK or Python venv |
-| `pnpm codecoach chat -p <project>` | Chat with the coach about a robot project (subscription transport arrives in stage 1b; see docs/dev-setup.md) |
+| `pnpm codecoach chat -p <project>` | Chat with the coach about a robot project (on a Claude Pro/Max subscription through Claude Code; see docs/dev-setup.md) |
 | `pnpm codecoach analyze <project>` | Show what CodeCoach detects about a project and which JDK it needs |
-| `pnpm codecoach eval [--smoke]` | Run the coaching evals (subscription transport arrives in stage 1b) |
+| `pnpm codecoach eval [--smoke]` | Run the coaching evals on the same subscription (`--resume` after a usage limit) |
 | `pnpm schema` | Regenerate the team config JSON schema |
 
 ## Roadmap and status

@@ -100,14 +100,20 @@ To try the extension, run `pnpm dev:vscode`. It rebuilds on change and opens an 
 
 ## 6. Running the coach
 
-**Spending policy:** CodeCoach doesn't use paid API keys. Live sessions and evals will run on a Claude Pro/Max subscription through Claude Code ([stage 1b](stages/01b-subscription-transport.md)), and students will use subscription apps they already have (stage 6). Don't set `ANTHROPIC_API_KEY` for this project.
+**Spending policy:** CodeCoach doesn't use paid API keys. Live sessions and evals run on a Claude Pro/Max subscription through Claude Code ([stage 1b](stages/01b-subscription-transport.md)). Don't set `ANTHROPIC_API_KEY` for this project; CodeCoach removes it from Claude Code's environment anyway.
 
-Until stage 1b lands, `pnpm codecoach chat` and `pnpm codecoach eval` only have the API-key path from stage 1, which is off by project policy. These parts work today without any account:
+One-time setup: install Claude Code, run `claude`, and sign in with your Pro/Max account. `pnpm run doctor` shows whether it's signed in.
 
-- `pnpm codecoach analyze <project>` prints what CodeCoach detects about a project (language, controller, season, robot structure) and which JDK it would use.
-- `pnpm test` runs every unit test, including the coach, checker and evals, against scripted model responses. It never calls a model.
+```sh
+pnpm codecoach chat -p fixtures/java-roborio-default-command-bug     # play a confused student
+pnpm codecoach chat -p <project> --model sonnet                       # lighter on usage limits
+```
 
-In the chat, `/hint` asks for a hint, `/tell-me` asks to be told (the coach still asks for one guess first), `/state` shows the debugging state and `/cost` shows the session's usage. The guardrail level comes from the project's `.codecoach/config.json` (default L0); `--level` overrides it for testing.
+In the chat, `/hint` asks for a hint, `/tell-me` asks to be told (the coach still asks for one guess first), `/state` shows the debugging state, and `/cost` shows tokens used and how much of the subscription's usage window is left. The guardrail level comes from the project's `.codecoach/config.json` (default L0); `--level` overrides it for testing.
+
+Evals run on the subscription too: `pnpm codecoach eval --smoke` first (2 scenarios), then `pnpm codecoach eval`. Each scenario uses a few dozen model turns of your limits. If the limit is reached, the run stops cleanly and prints a `--resume <run dir>` command to finish it later.
+
+Without any account, `pnpm codecoach analyze <project>` shows what CodeCoach detects about a project and which JDK it would use, and `pnpm test` runs every unit test against scripted model responses.
 
 Sessions are stored locally: `~/.local/share/codecoach` on Linux, `~/Library/Application Support/CodeCoach` on macOS and `%APPDATA%\CodeCoach` on Windows. Set `CODECOACH_HOME` to use another folder.
 

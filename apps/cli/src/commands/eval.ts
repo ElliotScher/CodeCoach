@@ -14,7 +14,8 @@ import {
   runEvals,
   writeReport,
 } from "@codecoach/evals";
-import type { CalibrationEntry, RubricItem, ScenarioResult } from "@codecoach/evals";
+import type { CalibrationEntry, EvalTransport, RubricItem, ScenarioResult } from "@codecoach/evals";
+import { assertApiSpendAllowed, assertSubscriptionAuth } from "@codecoach/providers";
 
 import { bold, dim, red, yellow } from "../term.js";
 
@@ -26,17 +27,22 @@ async function repoRoot(): Promise<string> {
   }
 }
 
-/** Rough cost per scenario for the confirmation prompt (coach + student + judge). Measured runs replace this. */
-const ESTIMATED_USD_PER_SCENARIO = 0.6;
-
-export async function evalRun(opts: {
+export interface EvalRunOptions {
   scenarios?: string;
   smoke?: boolean;
+  provider: "claude-code" | "anthropic";
+  allowApiSpend?: boolean;
+  /** Coach model (claude-code: opus/sonnet/haiku). */
   model?: string;
+  studentModel?: string;
+  judgeModel?: string;
   effort?: Effort;
   maxUsd: number;
+  resume?: string;
   yes?: boolean;
-}): Promise<void> {
+}
+
+export async function evalRun(opts: EvalRunOptions): Promise<void> {
   const root = await repoRoot();
   const scenarios = await loadScenarios(path.join(root, "fixtures"), {
     ...(opts.scenarios ? { glob: opts.scenarios } : {}),
@@ -47,19 +53,44 @@ export async function evalRun(opts: {
     process.exitCode = 1;
     return;
   }
-  if (!process.env["ANTHROPIC_API_KEY"] && !process.env["ANTHROPIC_AUTH_TOKEN"]) {
-    console.error(red("Evals call the Anthropic API: set ANTHROPIC_API_KEY."));
+  const transport: EvalTransport =
+    opts.provider === "anthropic"
+      ? { kind: "api", allowApiSpend: Boolean(opts.allowApiSpend), ...(opts.model ? { model: opts.model } : {}) }
+      : {
+          kind: "claude-code",
+          ...(opts.model ? { coachModel: opts.model } : {}),
+          ...(opts.studentModel ? { studentModel: opts.studentModel } : {}),
+          ...(opts.judgeModel ? { judgeModel: opts.judgeModel } : {}),
+        };
+  try {
+    if (transport.kind === "api") assertApiSpendAllowed("API evals", transport.allowApiSpend);
+    else assertSubscriptionAuth();
+  } catch (err) {
+    console.error(red(err instanceof Error ? err.message : String(err)));
     process.exitCode = 1;
     return;
   }
   console.log(`${bold("Eval run")}: ${scenarios.length} scenario(s): ${scenarios.map((s) => s.id).join(", ")}`);
-  console.log(
-    `Calls real models (coach ${opts.model ?? "claude-opus-5-5"}, simulated student claude-sonnet-5-5, judge claude-opus-5-5). ` +
-      `Rough estimate: $${(scenarios.length * ESTIMATED_USD_PER_SCENARIO).toFixed(2)}; stops starting new scenarios at $${opts.maxUsd.toFixed(2)}.`,
-  );
+  if (transport.kind === "claude-code") {
+    console.log(
+      `Runs on your Claude subscription through Claude Code: coach ${transport.coachModel ?? "opus"}, simulated student ${transport.studentModel ?? "sonnet"}, judge ${transport.judgeModel ?? "opus"}. ` +
+        "Nothing is billed, but each scenario uses a few dozen model turns of your usage limits. " +
+        "If a limit is reached the run stops cleanly; finish it later with --resume.",
+    );
+  } else {
+    console.log(
+      `Bills your Anthropic API key (spending opted in). Stops starting new scenarios at $${opts.maxUsd.toFixed(2)}.`,
+    );
+  }
   if (!opts.yes) {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
-    const answer = await rl.question(yellow("Spend real money on this run? [y/N] "));
+    const answer = await rl.question(
+      yellow(
+        transport.kind === "claude-code"
+          ? "Use your subscription for this run? [y/N] "
+          : "Spend real money on this run? [y/N] ",
+      ),
+    );
     rl.close();
     if (!/^y(es)?$/i.test(answer.trim())) {
       console.log("Cancelled.");
@@ -69,14 +100,16 @@ export async function evalRun(opts: {
   const run = await runEvals({
     scenarios,
     outDir: path.join(root, "packages/evals/runs"),
+    transport,
     maxUsd: opts.maxUsd,
-    ...(opts.model ? { model: opts.model } : {}),
+    ...(opts.resume ? { resumeDir: path.resolve(opts.resume) } : {}),
     ...(opts.effort ? { effort: opts.effort } : {}),
     log: (l) => console.log(dim(l)),
   });
   const report = await writeReport(run);
   console.log(`\n${await fs.readFile(report, "utf8")}`);
   console.log(dim(`Transcripts and summary: ${run.dir}`));
+  if (run.stoppedForLimit) process.exitCode = 3;
 }
 
 /** `codecoach eval grade <result.json>`: a person grades one transcript for judge calibration. */

@@ -255,17 +255,72 @@ function checkOwlet() {
   };
 }
 
+function checkClaudeCode() {
+  // The development transport (stage 1b): Claude Code signed in with a claude.ai
+  // Pro/Max subscription. `auth status` makes no model call.
+  const base = { id: "claude-code", name: "Claude Code", required: false, wanted: "claude.ai sign-in" };
+  const version = run("claude", ["--version"], { shell: IS_WINDOWS });
+  if (!version.ok) {
+    return {
+      ...base,
+      found: null,
+      status: "OPTIONAL",
+      details: "not found; needed for live coaching sessions and evals",
+    };
+  }
+  const env = { ...process.env };
+  delete env.ANTHROPIC_API_KEY;
+  delete env.ANTHROPIC_AUTH_TOKEN;
+  let status = null;
+  try {
+    status = JSON.parse(
+      execFileSync(
+        IS_WINDOWS ? "claude auth status --json" : "claude",
+        IS_WINDOWS ? undefined : ["auth", "status", "--json"],
+        {
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+          timeout: 20000,
+          env,
+          shell: IS_WINDOWS,
+        },
+      ),
+    );
+  } catch {
+    // Reported below.
+  }
+  const found = firstLine(version.out).replace(/\s*\(Claude Code\)$/, "");
+  if (!status?.loggedIn)
+    return {
+      ...base,
+      found,
+      status: "OPTIONAL",
+      details: "not signed in; run `claude` and sign in with your Pro/Max account",
+    };
+  if (status.authMethod !== "claude.ai") {
+    return {
+      ...base,
+      found,
+      status: "OPTIONAL",
+      details: `signed in with ${status.authMethod}, not a claude.ai subscription`,
+    };
+  }
+  return { ...base, found, status: "OK", details: `signed in (${status.subscriptionType ?? "subscription"})` };
+}
+
 function checkProviderKeys() {
   // Report only whether each key is set; never print values.
   const set = PROVIDER_KEYS.filter((k) => process.env[k]);
   return {
     id: "provider-keys",
-    name: "Provider keys",
+    name: "API keys",
     required: false,
     wanted: "-",
     found: set.length ? set.join(", ") : "none set",
     status: "INFO",
-    details: set.length ? "" : "only needed for live CLI runs and evals",
+    details: set.length
+      ? "unused: API spending is off for this project, and Claude Code runs without them"
+      : "not used (API spending is off for this project)",
   };
 }
 
@@ -279,6 +334,7 @@ function runChecks() {
     checkPython(),
     checkVsCode(),
     checkOwlet(),
+    checkClaudeCode(),
     checkProviderKeys(),
   ];
 }

@@ -1,25 +1,27 @@
 import { createInterface } from "node:readline/promises";
 import type { Interface } from "node:readline/promises";
 
-import type { AgentEvent, Effort, GuardrailLevel } from "@codecoach/core";
-import { ProviderError } from "@codecoach/core";
+import type { AgentEvent, Effort, GuardrailLevel, UsageLimitInfo } from "@codecoach/core";
+import { ProviderError, ZERO_USAGE, addUsage } from "@codecoach/core";
 
 import { startSession } from "../session.js";
+import type { ProviderChoice, StartedSession } from "../session.js";
 import { bold, cyan, dim, green, italic, red, yellow } from "../term.js";
 
 export interface ChatOptions {
   project: string;
-  provider: "anthropic";
+  provider: ProviderChoice;
   model?: string;
   level?: GuardrailLevel;
   effort?: Effort;
+  allowApiSpend?: boolean;
 }
 
 const HELP = `Commands:
   /hint      ask for a hint
   /tell-me   ask the coach to tell you (it asks for one guess first)
   /state     show the debugging state
-  /cost      show this session's token use and cost
+  /cost      show this session's token use (and subscription usage)
   /help      show this list
   /quit      leave (Ctrl+D works too)`;
 
@@ -43,16 +45,17 @@ function describeTool(name: string, input: unknown): string {
   }
 }
 
+export function describeLimit(info: UsageLimitInfo): string {
+  const reset = info.resetsAt ? `, resets ${new Date(info.resetsAt).toLocaleTimeString()}` : "";
+  if (info.status === "rejected") return `usage limit reached${reset}`;
+  const used =
+    info.utilization !== undefined
+      ? `${Math.round(info.utilization * 100)}% of the ${info.window?.replace("_", "-") ?? ""} limit used`
+      : info.status;
+  return `${used}${reset}`;
+}
+
 export async function chat(opts: ChatOptions): Promise<void> {
-  if (!process.env["ANTHROPIC_API_KEY"] && !process.env["ANTHROPIC_AUTH_TOKEN"]) {
-    console.error(
-      red(
-        "No Anthropic API key found. Set ANTHROPIC_API_KEY (the coach sends your messages and the code it reads to Anthropic).",
-      ),
-    );
-    process.exitCode = 1;
-    return;
-  }
   const rl: Interface = createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -68,16 +71,31 @@ export async function chat(opts: ChatOptions): Promise<void> {
     }
   });
 
-  const started = await startSession({
-    ...opts,
-    confirm: async (question) => {
-      const answer = await rl.question(yellow(`\n${question} [y/N] `));
-      return /^y(es)?$/i.test(answer.trim());
-    },
-    onOutput: (chunk) => process.stdout.write(dim(chunk)),
-    onProposedDiff: (p) => process.stdout.write(`\n${bold(`Proposed change to ${p.file}:`)} ${p.summary}\n${p.diff}\n`),
-  });
-  const { coach, summary, budget, level, levelFromConfig, model } = started;
+  let lastLimit: UsageLimitInfo | null = null;
+  let started: StartedSession;
+  try {
+    started = await startSession({
+      ...opts,
+      confirm: async (question) => {
+        const answer = await rl.question(yellow(`\n${question} [y/N] `));
+        return /^y(es)?$/i.test(answer.trim());
+      },
+      onOutput: (chunk) => process.stdout.write(dim(chunk)),
+      onProposedDiff: (p) =>
+        process.stdout.write(`\n${bold(`Proposed change to ${p.file}:`)} ${p.summary}\n${p.diff}\n`),
+      onLimit: (info) => {
+        lastLimit = info;
+        if (info.status !== "allowed") process.stdout.write(yellow(`\n(${describeLimit(info)})\n`));
+      },
+    });
+  } catch (err) {
+    rl.close();
+    console.error(red(err instanceof Error ? err.message : String(err)));
+    process.exitCode = 1;
+    return;
+  }
+  const { coach, summary, budget, level, levelFromConfig, model, via } = started;
+  let tokens = ZERO_USAGE;
 
   console.log(bold("CodeCoach") + dim(` (session ${started.session.meta.id})`));
   console.log(
@@ -88,7 +106,7 @@ export async function chat(opts: ChatOptions): Promise<void> {
   );
   console.log(
     dim(
-      `Your messages and the project files the coach reads go to Anthropic (${model}). Nothing else leaves this computer.`,
+      `The coach runs on ${via} (${model}). Your messages and the project files it reads go to Anthropic; nothing else leaves this computer.`,
     ),
   );
   console.log(dim("Type /help for commands.\n"));
@@ -115,9 +133,11 @@ export async function chat(opts: ChatOptions): Promise<void> {
         continue;
       }
       if (cmd === "/cost") {
-        const u = budget.sessionUsage;
+        const usage = `${tokens.inputTokens} input, ${tokens.outputTokens} output, ${tokens.cacheReadTokens} cache-read, ${tokens.cacheWriteTokens} cache-write tokens`;
         console.log(
-          `${u.inputTokens} input, ${u.outputTokens} output, ${u.cacheReadTokens} cache-read, ${u.cacheWriteTokens} cache-write tokens; $${budget.sessionCostUsd.toFixed(4)}`,
+          opts.provider === "claude-code"
+            ? `${usage}. Subscription: ${lastLimit ? describeLimit(lastLimit) : "no usage report yet"} (no per-message cost).`
+            : `${usage}; $${budget.sessionCostUsd.toFixed(4)}`,
         );
         continue;
       }
@@ -134,7 +154,10 @@ export async function chat(opts: ChatOptions): Promise<void> {
     turnController = new AbortController();
     process.stdout.write(green("coach> "));
     try {
-      for await (const ev of coach.send(text, { escapeHatch, signal: turnController.signal })) render(ev);
+      for await (const ev of coach.send(text, { escapeHatch, signal: turnController.signal })) {
+        if (ev.type === "turn_end") tokens = addUsage(tokens, ev.usage);
+        render(ev);
+      }
     } catch (err) {
       console.error(red(`\n${err instanceof ProviderError ? err.message : String(err)}`));
     } finally {
@@ -143,6 +166,7 @@ export async function chat(opts: ChatOptions): Promise<void> {
     process.stdout.write("\n\n");
   }
   rl.close();
+  await coach.close();
   await started.session.flush();
   console.log(dim(`Session saved as ${started.session.file}`));
 }

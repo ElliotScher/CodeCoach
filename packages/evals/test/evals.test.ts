@@ -5,9 +5,18 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
-import { MockProvider } from "@codecoach/core";
+import { MockProvider, MockRuntime } from "@codecoach/core";
+import { ApiSpendingDisabledError } from "@codecoach/providers";
 
-import { agreement, fixCheckPasses, loadScenarios, renderReport, renderTranscript, runEvals } from "../src/index.js";
+import {
+  agreement,
+  fixCheckPasses,
+  loadScenarios,
+  renderReport,
+  renderTranscript,
+  runEvals,
+  transportModels,
+} from "../src/index.js";
 import type { JudgeResult } from "../src/index.js";
 
 const FIXTURES = fileURLToPath(new URL("../../../fixtures/", import.meta.url));
@@ -100,9 +109,12 @@ describe("runner", () => {
     const run = await runEvals({
       scenarios: [scenario!],
       outDir: mkdtempSync(path.join(os.tmpdir(), "runs-")),
-      coachProvider: coach,
-      studentProvider: student,
-      judge: async (_client, opts) => ((judged = opts), passAll),
+      transport: { kind: "api", allowApiSpend: true }, // scripted models below: nothing is called or billed
+      models: {
+        coach: () => ({ provider: coach, model: "claude-opus-5-5" }),
+        student: () => ({ provider: student }),
+        judge: async (input) => ((judged = input), passAll),
+      },
     });
     const r = run.results[0]!;
     expect(r.studentStatus).toBe("fixed");
@@ -124,6 +136,7 @@ describe("runner", () => {
     });
     expect(judged).toMatchObject({ fixCheck: true, level: "L0" });
     expect(r.metrics.costUsd.coach).toBeCloseTo(0.005);
+    expect(r.metrics.tokens.coach.outputTokens).toBe(50);
     expect(r.promptHash).toMatch(/^[0-9a-f]{16}$/);
 
     const report = renderReport(run);
@@ -133,18 +146,75 @@ describe("runner", () => {
     expect(report).toContain("Guardrail violations shown to the student: 0 of 2 coach turns");
   });
 
-  test("stops starting scenarios once the budget is spent", async () => {
+  test("API transport: stops starting scenarios once the dollar cap is reached", async () => {
     const scenarios = await loadScenarios(FIXTURES, { smoke: true });
     const run = await runEvals({
       scenarios,
       outDir: mkdtempSync(path.join(os.tmpdir(), "runs-")),
+      transport: { kind: "api", allowApiSpend: true },
       maxUsd: 0.001,
-      coachProvider: new MockProvider([{ text: "What have you tried?", usage: { inputTokens: 1000 } }]),
-      studentProvider: new MockProvider([{ text: "nothing yet [GIVE UP]" }]),
-      judge: async () => passAll,
+      models: {
+        coach: () => ({
+          provider: new MockProvider([{ text: "What have you tried?", usage: { inputTokens: 1000 } }]),
+          model: "claude-opus-5-5",
+        }),
+        student: () => ({ provider: new MockProvider([{ text: "nothing yet [GIVE UP]" }]) }),
+        judge: async () => passAll,
+      },
     });
     expect(run.results.map((r) => r.id)).toEqual(["java-roborio-default-command-bug"]);
     expect(run.skipped).toEqual(["python-roborio-indentation-bug"]);
+  });
+
+  test("the API transport refuses to run unless spending is opted in", () => {
+    expect(() => transportModels({ kind: "api", allowApiSpend: false }, undefined, () => undefined)).toThrow(
+      ApiSpendingDisabledError,
+    );
+  });
+
+  test("subscription transport: a usage-limit stop keeps finished scenarios, and --resume finishes the rest", async () => {
+    const scenarios = await loadScenarios(FIXTURES, { smoke: true });
+    const outDir = mkdtempSync(path.join(os.tmpdir(), "runs-"));
+    const coachTurn = (limit: "allowed" | "rejected") =>
+      new MockRuntime([
+        { steps: [{ limit: { status: limit, utilization: 0.99 } }, { text: "What have you tried so far?" }] },
+      ]);
+    let limitNext = false;
+    const models = {
+      coach: () => ({ runtime: coachTurn(limitNext ? "rejected" : "allowed") }),
+      student: () => ({ runtime: new MockRuntime([{ steps: [{ text: "nothing [GIVE UP]" }] }]) }),
+      judge: async () => passAll,
+    };
+    const first = await runEvals({
+      scenarios,
+      outDir,
+      models: {
+        ...models,
+        coach: () => {
+          const c = models.coach();
+          limitNext = true; // the second scenario hits the limit
+          return c;
+        },
+      },
+    });
+    expect(first.results.map((r) => r.id)).toEqual(["java-roborio-default-command-bug"]);
+    expect(first.skipped).toEqual(["python-roborio-indentation-bug"]);
+    expect(first.stoppedForLimit).toMatchObject({ status: "rejected" });
+    expect(renderReport(first)).toContain("Stopped early");
+    expect(first.results[0]).toMatchObject({
+      transport: "claude-code",
+      provider: "mock-runtime",
+      metrics: { costUsd: { coach: 0, student: 0 } },
+    });
+
+    limitNext = false;
+    const resumed = await runEvals({ scenarios, outDir, resumeDir: first.dir, models });
+    expect(resumed.dir).toBe(first.dir);
+    expect(resumed.results.map((r) => r.id).sort()).toEqual([
+      "java-roborio-default-command-bug",
+      "python-roborio-indentation-bug",
+    ]);
+    expect(resumed.stoppedForLimit).toBeUndefined();
   });
 });
 

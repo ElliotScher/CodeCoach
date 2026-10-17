@@ -1,11 +1,26 @@
 {
   "files": [],
   "references": [
-    { "path": "packages/core" },
-    { "path": "packages/providers" },
-    { "path": "packages/pedagogy" },
-    { "path": "packages/frc" },
-    { "path": "packages/ui" },
-    { "path": "packages/evals" }
+    {
+      "path": "packages/core"
+    },
+    {
+      "path": "packages/mcp-server"
+    },
+    {
+      "path": "packages/providers"
+    },
+    {
+      "path": "packages/pedagogy"
+    },
+    {
+      "path": "packages/frc"
+    },
+    {
+      "path": "packages/ui"
+    },
+    {
+      "path": "packages/evals"
+    }
   ]
 }

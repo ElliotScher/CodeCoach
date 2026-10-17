@@ -12,6 +12,8 @@ import type {
 import { ProviderError } from "@codecoach/core";
 import type { ChatEvent, ChatProvider, ChatRequest, Message, ModelInfo, StopReason, Usage } from "@codecoach/core";
 
+import { assertApiSpendAllowed } from "./spend-gate.js";
+
 export const DEFAULT_ANTHROPIC_MODEL = "claude-opus-5-5";
 /** Cheap model for sub-tasks (rewriting a failed turn into a hint). */
 export const ANTHROPIC_CHEAP_MODEL = "claude-haiku-5-5";
@@ -25,6 +27,11 @@ export interface AnthropicProviderOptions {
   client?: ClientOptions;
   /** Server-side refusal fallbacks; on by default where the model supports them. */
   fallbacks?: boolean;
+  /**
+   * Opt in to API spending for this provider (otherwise CODECOACH_ALLOW_API_SPEND=1
+   * must be set). Tests with a mocked `fetch` pass true; nothing is billed there.
+   */
+  allowApiSpend?: boolean;
 }
 
 /** Converts provider-neutral history to Anthropic messages. Same-provider assistant turns replay raw. */
@@ -177,6 +184,7 @@ export class AnthropicProvider implements ChatProvider {
   private readonly fallbacks: boolean;
 
   constructor(opts: AnthropicProviderOptions = {}) {
+    assertApiSpendAllowed("The Anthropic API provider", opts.allowApiSpend);
     this.client = new Anthropic(opts.client);
     this.fallbacks = opts.fallbacks ?? true;
   }

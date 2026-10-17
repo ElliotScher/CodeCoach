@@ -1,11 +1,11 @@
 import { Command, Option } from "commander";
 
-import type { Effort, GuardrailLevel } from "@codecoach/core";
-
 import pkg from "../package.json" with { type: "json" };
 import { analyze } from "./commands/analyze.js";
 import { chat } from "./commands/chat.js";
+import type { ChatOptions } from "./commands/chat.js";
 import { evalCalibrate, evalGrade, evalRun } from "./commands/eval.js";
+import type { EvalRunOptions } from "./commands/eval.js";
 
 const LEVELS = ["L0", "L1", "L2", "L3"];
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
@@ -19,23 +19,23 @@ export function createProgram(): Command {
     .command("chat")
     .description("Chat with the coach about a robot project")
     .requiredOption("-p, --project <dir>", "robot project folder")
-    .addOption(new Option("--provider <provider>", "model provider").choices(["anthropic"]).default("anthropic"))
-    .option("-m, --model <model>", "model (defaults to the team config, then claude-opus-5-5)")
+    .addOption(
+      new Option(
+        "--provider <provider>",
+        "claude-code: your Claude subscription (default); anthropic: the API (bills a key)",
+      )
+        .choices(["claude-code", "anthropic"])
+        .default("claude-code"),
+    )
+    .option("--allow-api-spend", "allow --provider anthropic to bill an API key (off by project policy)")
+    .option("-m, --model <model>", "model (claude-code: opus, sonnet or haiku; default opus)")
     .addOption(
       new Option("-l, --level <level>", "guardrail level (overrides the team config, for testing)").choices(LEVELS),
     )
     .addOption(new Option("--effort <effort>", "model effort").choices(EFFORTS))
-    .action(
-      async (o: {
-        project: string;
-        provider: "anthropic";
-        model?: string;
-        level?: GuardrailLevel;
-        effort?: Effort;
-      }) => {
-        await chat(o);
-      },
-    );
+    .action(async (o: ChatOptions) => {
+      await chat(o);
+    });
 
   program
     .command("analyze")
@@ -46,28 +46,31 @@ export function createProgram(): Command {
       await analyze(dir, o);
     });
 
-  const evals = program.command("eval").description("Run the coaching eval suite (calls real models; costs money)");
+  const evals = program.command("eval").description("Run the coaching eval suite (calls real models)");
   evals
     .command("run", { isDefault: true })
-    .description("Run scenarios with a simulated student and an LLM judge")
+    .description("Run scenarios with a simulated student and an LLM judge (on your Claude subscription by default)")
     .option("-s, --scenarios <glob>", "only scenarios whose folder name matches this glob")
     .option("--smoke", "only the smoke subset")
-    .option("-m, --model <model>", "coach model")
+    .addOption(
+      new Option(
+        "--provider <provider>",
+        "claude-code: your Claude subscription (default); anthropic: the API (bills a key)",
+      )
+        .choices(["claude-code", "anthropic"])
+        .default("claude-code"),
+    )
+    .option("--allow-api-spend", "allow --provider anthropic to bill an API key (off by project policy)")
+    .option("-m, --model <model>", "coach model (claude-code default: opus)")
+    .option("--student-model <model>", "simulated student model (claude-code default: sonnet)")
+    .option("--judge-model <model>", "judge model (claude-code default: opus)")
     .addOption(new Option("--effort <effort>", "coach effort").choices(EFFORTS))
-    .option("--max-usd <usd>", "stop starting scenarios once this much is spent", (v) => Number(v), 10)
-    .option("-y, --yes", "don't ask before spending")
-    .action(
-      async (o: {
-        scenarios?: string;
-        smoke?: boolean;
-        model?: string;
-        effort?: Effort;
-        maxUsd: number;
-        yes?: boolean;
-      }) => {
-        await evalRun(o);
-      },
-    );
+    .option("--max-usd <usd>", "API only: stop starting scenarios once this much is billed", (v) => Number(v), 10)
+    .option("--resume <dir>", "finish a run that stopped (e.g. at a usage limit)")
+    .option("-y, --yes", "don't ask before starting")
+    .action(async (o: EvalRunOptions) => {
+      await evalRun(o);
+    });
   evals
     .command("grade")
     .description("Grade one eval transcript by hand, for judge calibration")

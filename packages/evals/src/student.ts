@@ -2,8 +2,8 @@ import { promises as fs } from "node:fs";
 
 import { z } from "zod";
 
-import { Agent, ToolError, ToolRegistry, WorkspaceError, defineTool } from "@codecoach/core";
-import type { AgentEvent, BudgetMeter, ChatProvider, Workspace } from "@codecoach/core";
+import { Agent, RuntimeAgent, ToolError, ToolRegistry, WorkspaceError, defineTool } from "@codecoach/core";
+import type { AgentEvent, BudgetMeter, ChatProvider, ConversationRuntime, Workspace } from "@codecoach/core";
 
 import type { Scenario } from "./scenario.js";
 
@@ -42,11 +42,14 @@ function studentSystemPrompt(s: Scenario): string {
 /** A simulated student: an agent with the persona and a file view/edit tool on the scenario's project copy. */
 export class SimulatedStudent {
   readonly edits: StudentEdit[] = [];
-  private readonly agent: Agent;
+  private readonly agent: Agent | RuntimeAgent;
 
   constructor(
     scenario: Scenario,
-    opts: { provider: ChatProvider; model?: string; workspace: Workspace; budget?: BudgetMeter },
+    opts: ({ provider: ChatProvider; model?: string } | { runtime: ConversationRuntime }) & {
+      workspace: Workspace;
+      budget?: BudgetMeter;
+    },
   ) {
     const edits = this.edits;
     const tools = new ToolRegistry([
@@ -93,17 +96,31 @@ export class SimulatedStudent {
         },
       }),
     ]);
-    this.agent = new Agent({
-      provider: opts.provider,
-      model: opts.model ?? SIMULATED_STUDENT_MODEL,
-      effort: "low",
-      maxTokens: 16000,
-      system: [{ text: studentSystemPrompt(scenario), cacheBreakpoint: true }],
-      tools,
-      level: "L0",
-      toolContext: { workspace: opts.workspace, confirm: async () => false },
-      ...(opts.budget ? { budget: opts.budget } : {}),
-    });
+    const toolContext = { workspace: opts.workspace, confirm: async () => false };
+    this.agent =
+      "runtime" in opts
+        ? new RuntimeAgent({
+            runtime: opts.runtime,
+            system: studentSystemPrompt(scenario),
+            tools,
+            level: "L0",
+            toolContext,
+          })
+        : new Agent({
+            provider: opts.provider,
+            model: opts.model ?? SIMULATED_STUDENT_MODEL,
+            effort: "low",
+            maxTokens: 16000,
+            system: [{ text: studentSystemPrompt(scenario), cacheBreakpoint: true }],
+            tools,
+            level: "L0",
+            toolContext,
+            ...(opts.budget ? { budget: opts.budget } : {}),
+          });
+  }
+
+  async close(): Promise<void> {
+    if (this.agent instanceof RuntimeAgent) await this.agent.close();
   }
 
   /** Gives the student the coach's reply; returns what the student says back. */

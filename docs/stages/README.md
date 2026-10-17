@@ -13,7 +13,7 @@ Task sizes: **S** ≈ under half a day, **M** ≈ 1–3 days, **L** ≈ a week o
 | 0a | Dev environment | [00a-dev-environment.md](00a-dev-environment.md) | Done |
 | 0b | Scaffolding and CI | [00b-scaffolding-ci.md](00b-scaffolding-ci.md) | Done |
 | 1 | Core agent, pedagogy v1, CLI, evals v1 | [01-core-and-pedagogy.md](01-core-and-pedagogy.md) | Built and tested offline; live criteria move to 1b |
-| 1b | Subscription transport (Claude Code, development-only) and spending gate | [01b-subscription-transport.md](01b-subscription-transport.md) | Not started |
+| 1b | Subscription transport (Claude Code, development-only) and spending gate | [01b-subscription-transport.md](01b-subscription-transport.md) | Built and verified live; waiting on the eval baseline and judge calibration |
 | 2 | VS Code extension MVP | [02-vscode-extension.md](02-vscode-extension.md) | Not started |
 | 3 | OpenAI and Google API-key providers | [03-multi-provider.md](03-multi-provider.md) | Deferred (only if the spending gate is lifted) |
 | 4 | Logs, simulation and NetworkTables | [04-logs-sim-nt.md](04-logs-sim-nt.md) | Not started |

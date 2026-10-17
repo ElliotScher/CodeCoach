@@ -1,5 +1,6 @@
-// Live smoke test against the real API. Costs a few cents, so it only runs
-// with both ANTHROPIC_API_KEY and CODECOACH_LIVE=1 set:
+// Live smoke test against the real API. It bills an API key, which is off by
+// project policy (PLAN.md, Decisions → Spending). It only runs with both
+// ANTHROPIC_API_KEY and CODECOACH_LIVE=1 set:
 //   CODECOACH_LIVE=1 pnpm vitest run packages/providers/test/anthropic.live.test.ts
 import { describe, expect, test } from "vitest";
 
@@ -32,7 +33,7 @@ async function turn(provider: AnthropicProvider, messages: Message[]) {
 
 describe.skipIf(!live)("Anthropic live", () => {
   test("turn 2 reads the cache written by turn 1", async () => {
-    const provider = new AnthropicProvider();
+    const provider = new AnthropicProvider({ allowApiSpend: true });
     const history: Message[] = [{ role: "user", content: [{ type: "text", text: "My robot won't drive in teleop." }] }];
     const first = await turn(provider, history);
     expect(first.stop).toBe("end_turn");

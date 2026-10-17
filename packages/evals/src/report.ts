@@ -6,6 +6,11 @@ import type { EvalRun, ScenarioResult } from "./runner.js";
 
 const mark = (v: boolean | null | undefined) => (v === null || v === undefined ? "–" : v ? "✓" : "✗");
 
+function outputTokens(r: ScenarioResult): number {
+  const t = r.metrics.tokens;
+  return t.coach.outputTokens + t.student.outputTokens + t.judge.outputTokens;
+}
+
 /** Markdown score matrix for one run (one provider/model). */
 export function renderReport(run: EvalRun): string {
   const rs = run.results;
@@ -13,12 +18,22 @@ export function renderReport(run: EvalRun): string {
   const hashes = [...new Set(rs.map((r) => r.promptHash))];
   lines.push(`# Eval run ${run.startedAt}`);
   lines.push("");
+  lines.push(
+    `- Transport: ${run.transport}${run.transport === "claude-code" ? " (the owner's Claude subscription; nothing billed)" : ""}`,
+  );
   lines.push(`- Coach: ${rs[0]?.provider ?? "?"} / ${run.model}`);
   lines.push(`- Prompt: ${[...new Set(rs.map((r) => r.promptVersions))].join(", ")} (hash ${hashes.join(", ")})`);
-  lines.push(
-    `- Scenarios: ${rs.length}${run.skipped.length ? ` (skipped for budget: ${run.skipped.join(", ")})` : ""}`,
-  );
-  lines.push(`- Total cost: $${run.totalUsd.toFixed(2)}`);
+  lines.push(`- Scenarios: ${rs.length}${run.skipped.length ? ` (not run: ${run.skipped.join(", ")})` : ""}`);
+  if (run.transport !== "claude-code") lines.push(`- Total cost: $${run.totalUsd.toFixed(2)}`);
+  lines.push(`- Output tokens (coach + student + judge): ${rs.reduce((n, r) => n + outputTokens(r), 0)}`);
+  if (run.stoppedForLimit) {
+    const when = run.stoppedForLimit.resetsAt
+      ? ` It resets at ${new Date(run.stoppedForLimit.resetsAt).toISOString()}.`
+      : "";
+    lines.push(
+      `- **Stopped early:** the subscription's usage limit was reached.${when} Resume with \`codecoach eval --resume ${run.dir}\`.`,
+    );
+  }
   lines.push("");
   const header = [
     "Scenario",
@@ -32,7 +47,7 @@ export function renderReport(run: EvalRun): string {
     "Shown viol.",
     "Rewrites",
     "Outside ws",
-    "Cost",
+    "Usage",
   ];
   lines.push(`| ${header.join(" | ")} |`);
   lines.push(`|${header.map(() => "---").join("|")}|`);
@@ -51,7 +66,9 @@ export function renderReport(run: EvalRun): string {
         r.metrics.violationsShown,
         r.metrics.rewrites,
         r.metrics.outsideWorkspaceCalls,
-        `$${r.metrics.costUsd.total.toFixed(2)}`,
+        r.metrics.costUsd.total
+          ? `$${r.metrics.costUsd.total.toFixed(2)}`
+          : `${(outputTokens(r) / 1000).toFixed(1)}k out tok`,
       ].join(" | ")} |`,
     );
   }

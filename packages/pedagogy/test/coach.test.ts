@@ -4,10 +4,10 @@ import path from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { MockProvider, Workspace } from "@codecoach/core";
-import type { AgentEvent, MockTurn } from "@codecoach/core";
+import { MockProvider, MockRuntime, Workspace } from "@codecoach/core";
+import type { AgentEvent, MockRuntimeTurn, MockTurn } from "@codecoach/core";
 
-import { Coach } from "../src/index.js";
+import { Coach, PROMPTS } from "../src/index.js";
 
 function coach(turns: MockTurn[], rewriterTurns: MockTurn[] = []) {
   const dir = mkdtempSync(path.join(os.tmpdir(), "coach-"));
@@ -94,5 +94,53 @@ describe("Coach", () => {
     const { c } = coach([]);
     expect(c.prompt.hash).toMatch(/^[0-9a-f]{16}$/);
     expect(c.prompt.versions).toBe("persona@1 rules@1 levels/L0@1");
+  });
+});
+
+describe("Coach on a runtime transport (Claude Code)", () => {
+  function runtimeCoach(turns: MockRuntimeTurn[]) {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "coach-rt-"));
+    const runtime = new MockRuntime(turns);
+    const c = new Coach({
+      runtime,
+      level: "L0",
+      workspace: new Workspace(dir),
+      tools: [],
+      projectSummary: "Language: java",
+      profile: { language: "en", readingLevel: "standard" },
+      confirm: async () => false,
+    });
+    return { c, runtime };
+  }
+
+  test("sends the pedagogy prompt plus the transport note, and serves update_coaching_state", async () => {
+    const { c, runtime } = runtimeCoach([
+      {
+        steps: [
+          { call: { id: "1", name: "update_coaching_state", input: { phase: "describe" } } },
+          { text: "What does the robot do?" },
+        ],
+      },
+    ]);
+    const r = await run(c.send("robot won't drive"));
+    expect(c.transport).toBe("mock-runtime");
+    expect(runtime.system).toContain(PROMPTS.persona.body);
+    expect(runtime.system).toContain("mcp__codecoach__");
+    expect(runtime.tools.map((t) => t.name)).toEqual(["update_coaching_state"]);
+    expect(c.state.state.phase).toBe("describe");
+    expect(runtime.sent[0]).toMatch(/<codecoach_turn_context>\nCoaching state for this turn/);
+    expect(r.end.outcome).toBe("ok");
+  });
+
+  test("a fix at L0 is interrupted and rephrased, never shown", async () => {
+    const { c, runtime } = runtimeCoach([
+      { steps: [{ text: "Add this:\n" }, { text: FIX }, { text: "Then deploy." }] },
+      { steps: [{ text: "Which subsystems get a default command in the RobotContainer constructor?" }] },
+    ]);
+    const r = await run(c.send("tell me the fix"));
+    expect(runtime.interrupts).toBe(1);
+    expect(runtime.sent[1]).toMatch(/Message from CodeCoach, not the student/);
+    expect(r.text).not.toContain("setDefaultCommand(new RunCommand");
+    expect(r.text).toContain("Which subsystems get a default command");
   });
 });

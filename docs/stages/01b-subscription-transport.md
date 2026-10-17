@@ -79,25 +79,35 @@ Record, with links and a "checked on" date:
 - how usage limits apply to `claude -p` and Agent SDK use. A secondary source says that from June 15, 2026, subscription usage of the Agent SDK and `claude -p` draws from a separate monthly credit ([Tutorials Dojo](https://tutorialsdojo.com/claude-agent-sdk/)); *verify* against Anthropic's own documentation;
 - that this transport is never offered to students or other teams, and why (third-party products can't offer claude.ai login without approval).
 
+### 4.7 Implementation notes (verified against Claude Code 2.1.301)
+- **Flags that exist:** `--system-prompt` replaces Claude Code's prompt; `--tools ""` disables every built-in tool; `--allowedTools mcp__codecoach` plus `--permission-mode dontAsk` and `--permission-prompts none` deny anything else; `--strict-mcp-config`, `--setting-sources ""` and `--disable-slash-commands` keep user settings, other MCP servers and slash commands out; `--effort` and `--model` work; `--json-schema` returns `structured_output`. There is no `--max-turns`, so the runtime agent caps tool calls itself (24 per turn). `--bare` only accepts API keys, so it's not used.
+- **Auth:** `claude auth status --json` reports `authMethod: "claude.ai"` and `subscriptionType`; every init event reports `apiKeySource: "none"` on a subscription. The adapter requires both, and the child process runs with API-key variables removed.
+- **No canary needed:** because `--system-prompt` replaces the prompt, the adapter checks each init event instead: only `mcp__codecoach__*` tools, the server connected, no API key. Any mismatch stops the session.
+- **What still reaches the model besides the pedagogy prompt:** Claude Code adds an account-identity block (the signed-in email) and an environment block (working directory, platform, date). That's acceptable for the owner's development use; it's one more reason this transport is never offered to students.
+- **Tools run in-process:** CodeCoach serves its tools to Claude Code from a local MCP server (Streamable HTTP on 127.0.0.1 with a bearer token) inside the coaching process. Tool calls therefore share the workspace sandbox, the coaching state machine and the checker's "lines the coach has read" set.
+- **Interrupts:** a `control_request` with `subtype: "interrupt"` ends the turn (`error_during_execution`, `terminal_reason: "aborted_streaming"`), and the next turn works in the same process. The runtime agent uses this to stop a reply the checker blocks, then sends the rephrase turn.
+- **Usage limits:** each turn emits a `rate_limit_event` with five-hour and seven-day utilization. The CLI shows it in `/cost` and warns when it's no longer "allowed"; the eval runner stops at "rejected" without keeping the cut-short scenario, and `codecoach eval --resume <run dir>` finishes the run later.
+- **Live check (2026-10-17):** a two-turn session on the default-command fixture, on Sonnet through the owner's Pro subscription. The coach recorded the phase and the student's hypothesis, mapped the robot structure, read `RobotContainer.java` through CodeCoach's tools, designed an experiment and pointed at the "hold A" clue without giving the fix. No checker violations.
+
 ## 5. Task breakdown
 **PR 1: spending gate**
-- [ ] S: `spend-gate.ts`; the Anthropic adapter, `codecoach chat` and `codecoach eval` refuse API mode without `--allow-api-spend`
-- [ ] S: docs updated (dev-setup, README) so nothing suggests setting an API key
+- [x] S: `spend-gate.ts`; the Anthropic adapter, `codecoach chat` and `codecoach eval` refuse API mode without `--allow-api-spend`
+- [x] S: docs updated (dev-setup, README) so nothing suggests setting an API key
 
 **PR 2: MCP server** (moved from stage 6)
-- [ ] M: `packages/mcp-server` over the stage 1 registry, level-aware, with a conformance test
+- [x] M: `packages/mcp-server` over the stage 1 registry, level-aware, tested with the MCP SDK's own client
 
 **PR 3: runtime supervisor** (moved from stage 6)
-- [ ] M: `runtime.ts`
+- [x] M: process supervision lives in `ClaudeCodeRuntime` for now (spawn, init check, interrupt, clean shutdown); a shared `runtime.ts` is extracted when stage 6 adds a second runtime
 
 **PR 4: Claude Code transport**
 - [ ] S: terms entry in `docs/policy/subscriptions.md`
-- [ ] L: `claude-code.ts`: spawn, sign-in check, no-API-key environment, prompt injection + canary, MCP-only tools, event mapping, rephrase turns
-- [ ] S: recorded stream-json fixtures for tests
+- [x] L: `claude-code.ts`: spawn, sign-in check, no-API-key environment, system prompt replaced (init-event check instead of a canary), MCP-only tools, event mapping; rephrase turns in core's `RuntimeAgent`
+- [x] S: recorded stream-json fixtures for tests (real recordings from Claude Code 2.1.301), plus a fake `claude` that replays them
 
 **PR 5: CLI and evals on the subscription**
-- [ ] M: `--provider claude-code` as the CLI default; `/cost` shows usage instead of dollars
-- [ ] M: evals runner on the transport, with judge JSON validation, usage-limit backoff and resume, and transport tagging
+- [x] M: `--provider claude-code` as the CLI default; `/cost` shows usage instead of dollars; doctor reports Claude Code's sign-in
+- [x] M: evals runner on the transport, with judge JSON validation (`--json-schema` + Zod, one retry), a clean stop at the usage limit, `--resume`, and transport tagging
 - [ ] S: smoke run, then the full baseline → `docs/measurements/evals-v1.md`
 - [ ] M: judge calibration set (10 hand-graded transcripts), as in stage 1
 

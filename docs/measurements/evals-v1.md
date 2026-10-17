@@ -2,7 +2,7 @@
 
 **Status: not recorded yet.** The eval suite is built and tested offline (scripted providers). Under the project's spending policy (no API-key spending; PLAN.md, Decisions → Spending), the baseline is recorded through the Claude Code subscription transport from [stage 1b](../stages/01b-subscription-transport.md), with the coach, the simulated student and the judge all on the owner's Pro/Max subscription.
 
-## How to record it (once stage 1b lands)
+## How to record it
 
 ```sh
 claude                                   # once: sign in with the Pro/Max account

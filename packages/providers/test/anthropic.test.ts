@@ -6,7 +6,13 @@ import { describe, expect, test } from "vitest";
 
 import type { ChatEvent, ChatRequest, Message } from "@codecoach/core";
 
-import { AnthropicProvider, buildRequest, toAnthropicMessages, toProviderError } from "../src/index.js";
+import {
+  AnthropicProvider,
+  ApiSpendingDisabledError,
+  buildRequest,
+  toAnthropicMessages,
+  toProviderError,
+} from "../src/index.js";
 
 const fixture = (name: string) => readFileSync(fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url)), "utf8");
 
@@ -29,6 +35,7 @@ function replaying(...responses: (string | { status: number; body: unknown })[])
   };
   const provider = new AnthropicProvider({
     client: { apiKey: "test-key", fetch: fetchImpl as typeof fetch, maxRetries: 0 },
+    allowApiSpend: true, // mocked fetch: nothing is billed
   });
   return { provider, requests };
 }
@@ -230,5 +237,20 @@ describe("AnthropicProvider streaming (recorded SSE)", () => {
       "overloaded",
     );
     expect(toProviderError(new Anthropic.BadRequestError(400, undefined, "bad", headers)).kind).toBe("bad_request");
+  });
+});
+
+describe("spending gate", () => {
+  test("the API provider refuses to start unless spending is opted in", () => {
+    const saved = process.env["CODECOACH_ALLOW_API_SPEND"];
+    delete process.env["CODECOACH_ALLOW_API_SPEND"];
+    try {
+      expect(() => new AnthropicProvider({ client: { apiKey: "k" } })).toThrow(ApiSpendingDisabledError);
+      process.env["CODECOACH_ALLOW_API_SPEND"] = "1";
+      expect(() => new AnthropicProvider({ client: { apiKey: "k" } })).not.toThrow();
+    } finally {
+      if (saved === undefined) delete process.env["CODECOACH_ALLOW_API_SPEND"];
+      else process.env["CODECOACH_ALLOW_API_SPEND"] = saved;
+    }
   });
 });

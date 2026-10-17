@@ -18,6 +18,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "0.135.0",
     "@codecoach/core": "workspace:*",
+    "@codecoach/mcp-server": "workspace:*",
     "zod": "4.6.7"
   }
 }

@@ -1,9 +1,11 @@
-import { Agent, ToolRegistry } from "@codecoach/core";
+import { Agent, RuntimeAgent, ToolRegistry } from "@codecoach/core";
 import type {
   AgentEvent,
   BudgetMeter,
   ChatProvider,
+  ConversationRuntime,
   Effort,
+  UsageLimitInfo,
   GuardHooks,
   GuardrailLevel,
   Message,
@@ -21,9 +23,13 @@ import { PROMPTS } from "./prompts.js";
 import { CoachingStateMachine } from "./state.js";
 import type { CoachingState } from "./state.js";
 
-export interface CoachOptions {
-  provider: ChatProvider;
-  model: string;
+/** How the coach reaches a model: an API-style provider (CodeCoach runs the tool loop) or a runtime that runs its own. */
+export type CoachTransport =
+  { provider: ChatProvider; model: string } | { runtime: ConversationRuntime; model?: string };
+
+export type CoachOptions = CoachTransport & CoachSessionOptions;
+
+interface CoachSessionOptions {
   effort?: Effort;
   level: GuardrailLevel;
   workspace: Workspace;
@@ -34,6 +40,8 @@ export interface CoachOptions {
   profile: StudentProfile;
   confirm(question: string): Promise<boolean>;
   onOutput?(chunk: string): void;
+  /** Usage-limit reports from a subscription runtime. */
+  onLimit?(info: UsageLimitInfo): void;
   budget?: BudgetMeter;
   session?: Session;
   /** Cheap model for rewriting a twice-failed turn into hint form. */
@@ -67,11 +75,24 @@ export function correctiveNote(level: GuardrailLevel, violations: readonly Viola
 const FALLBACK_TEXT =
   "Let me ask it a different way so you can find it yourself: what have you tried so far, and what did the robot do when you tried it?";
 
+/**
+ * Added to the system prompt on runtime transports (Claude Code), where tool
+ * names carry the MCP prefix and per-turn state arrives inside the message.
+ */
+export const RUNTIME_TRANSPORT_NOTE = [
+  "How this session is wired:",
+  "- Your tools are named with the prefix mcp__codecoach__ (for example mcp__codecoach__update_coaching_state). They are the only tools you have.",
+  "- The per-turn coaching state arrives at the top of each student message inside <codecoach_turn_context> tags. It comes from CodeCoach, not the student; don't quote it.",
+  '- A message that starts with "(Message from CodeCoach, not the student." is an instruction from CodeCoach; follow it and reply to the student.',
+].join("\n");
+
 /** One coaching session: the agent loop with pedagogy (prompt, state machine, checker) wired in. */
 export class Coach {
   readonly state: CoachingStateMachine;
   readonly prompt: AssembledPrompt;
-  readonly agent: Agent;
+  readonly agent: Agent | RuntimeAgent;
+  /** "api" (CodeCoach runs the loop) or the runtime's id, e.g. "claude-code". */
+  readonly transport: string;
   private opts: CoachOptions;
 
   constructor(opts: CoachOptions) {
@@ -84,25 +105,48 @@ export class Coach {
       projectSummary: opts.projectSummary,
       tools: registry.specs(opts.level),
     });
-    this.agent = new Agent({
-      provider: opts.provider,
-      model: opts.model,
-      ...(opts.effort ? { effort: opts.effort } : {}),
-      system: this.prompt.system,
-      tools: registry,
-      level: opts.level,
-      toolContext: {
-        workspace: opts.workspace,
-        confirm: opts.confirm,
-        ...(opts.onOutput ? { onOutput: opts.onOutput } : {}),
-      },
-      ...(opts.history ? { history: opts.history } : {}),
-      ...(opts.budget ? { budget: opts.budget } : {}),
-      ...(opts.session ? { session: opts.session } : {}),
-      turnContext: (input) =>
-        renderTurnContext(this.state.state, { level: opts.level, escapeHatch: input.escapeHatch }),
-      guard: this.guardHooks(),
-    });
+    const toolContext = {
+      workspace: opts.workspace,
+      confirm: opts.confirm,
+      ...(opts.onOutput ? { onOutput: opts.onOutput } : {}),
+    };
+    const turnContext = (input: { escapeHatch: boolean }) =>
+      renderTurnContext(this.state.state, { level: opts.level, escapeHatch: input.escapeHatch });
+    if ("runtime" in opts) {
+      this.transport = opts.runtime.id;
+      this.agent = new RuntimeAgent({
+        runtime: opts.runtime,
+        system: [...this.prompt.system.map((b) => b.text), RUNTIME_TRANSPORT_NOTE].join("\n\n"),
+        tools: registry,
+        level: opts.level,
+        toolContext,
+        ...(opts.session ? { session: opts.session } : {}),
+        ...(opts.onLimit ? { onLimit: opts.onLimit } : {}),
+        turnContext,
+        guard: this.guardHooks(),
+      });
+    } else {
+      this.transport = "api";
+      this.agent = new Agent({
+        provider: opts.provider,
+        model: opts.model,
+        ...(opts.effort ? { effort: opts.effort } : {}),
+        system: this.prompt.system,
+        tools: registry,
+        level: opts.level,
+        toolContext,
+        ...(opts.history ? { history: opts.history } : {}),
+        ...(opts.budget ? { budget: opts.budget } : {}),
+        ...(opts.session ? { session: opts.session } : {}),
+        turnContext,
+        guard: this.guardHooks(),
+      });
+    }
+  }
+
+  /** Stops the runtime process, if any. */
+  async close(): Promise<void> {
+    if (this.agent instanceof RuntimeAgent) await this.agent.close();
   }
 
   /** Starts logging the conversation and coaching state to `session`. */

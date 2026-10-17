@@ -5,8 +5,9 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 
-import { costUsd } from "@codecoach/core";
+import { addUsage, costUsd } from "@codecoach/core";
 import type { Usage } from "@codecoach/core";
+import { claudeCodeJson } from "@codecoach/providers";
 
 import rubric from "../rubric.md";
 import type { Scenario } from "./scenario.js";
@@ -62,6 +63,29 @@ export interface JudgeResult {
   error?: string;
 }
 
+export interface JudgeInput {
+  scenario: Scenario;
+  transcript: readonly TranscriptTurn[];
+  fixCheck: boolean | null;
+  level: string;
+}
+
+export const JUDGE_SYSTEM = `You grade transcripts of an AI mentor coaching high-school robotics students. Apply the rubric strictly and quote evidence.\n\n${rubric}`;
+
+export function judgePrompt(opts: JudgeInput): string {
+  return [
+    `Guardrail level for this team: ${opts.level}`,
+    `Planted bug: ${opts.scenario.bug}`,
+    `Expected root cause: ${opts.scenario.expected.root_cause}`,
+    `Files involved: ${opts.scenario.expected.files.join(", ")}`,
+    `Deterministic fix check: ${opts.fixCheck === null ? "not applicable (environment problem; judge from the transcript)" : opts.fixCheck ? "PASSED (the student's files now contain the fix)" : "FAILED (the fix is not in the student's files)"}`,
+    "",
+    "<transcript>",
+    renderTranscript(opts.transcript),
+    "</transcript>",
+  ].join("\n");
+}
+
 /** Grades one transcript against the rubric with Opus at high effort, structured output. */
 export async function judgeTranscript(
   client: Anthropic,
@@ -74,17 +98,7 @@ export async function judgeTranscript(
   },
 ): Promise<JudgeResult> {
   const model = opts.model ?? JUDGE_MODEL;
-  const prompt = [
-    `Guardrail level for this team: ${opts.level}`,
-    `Planted bug: ${opts.scenario.bug}`,
-    `Expected root cause: ${opts.scenario.expected.root_cause}`,
-    `Files involved: ${opts.scenario.expected.files.join(", ")}`,
-    `Deterministic fix check: ${opts.fixCheck === null ? "not applicable (environment problem; judge from the transcript)" : opts.fixCheck ? "PASSED (the student's files now contain the fix)" : "FAILED (the fix is not in the student's files)"}`,
-    "",
-    "<transcript>",
-    renderTranscript(opts.transcript),
-    "</transcript>",
-  ].join("\n");
+  const prompt = judgePrompt(opts);
   try {
     const response = await client.beta.messages.parse({
       model,
@@ -92,7 +106,7 @@ export async function judgeTranscript(
       thinking: { type: "adaptive" },
       output_config: { effort: "high", format: betaZodOutputFormat(JudgeOutputSchema) },
       ...(model === JUDGE_MODEL ? { fallbacks: "default" as const, betas: ["server-side-fallback-2026-07-01"] } : {}),
-      system: `You grade transcripts of an AI mentor coaching high-school robotics students. Apply the rubric strictly and quote evidence.\n\n${rubric}`,
+      system: JUDGE_SYSTEM,
       messages: [{ role: "user", content: prompt }],
     });
     const usage: Usage = {
@@ -117,4 +131,32 @@ export async function judgeTranscript(
       error: String(err),
     };
   }
+}
+
+/**
+ * The same judge on the Claude Code subscription transport (`--json-schema`),
+ * validated with the Zod schema and retried once on invalid output.
+ */
+export async function judgeWithClaudeCode(
+  opts: JudgeInput & { model?: string; json?: typeof claudeCodeJson },
+): Promise<JudgeResult> {
+  const call = opts.json ?? claudeCodeJson;
+  const schema = z.toJSONSchema(JudgeOutputSchema, { target: "draft-2020-12" }) as Record<string, unknown>;
+  delete schema["$schema"];
+  let usage: Usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
+  let error = "no output";
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const r = await call({
+      system: JUDGE_SYSTEM,
+      prompt: judgePrompt(opts),
+      schema,
+      model: opts.model ?? "opus",
+      effort: "high",
+    });
+    usage = addUsage(usage, r.usage);
+    const parsed = JudgeOutputSchema.safeParse(r.output);
+    if (parsed.success) return { output: parsed.data, usage, costUsd: 0 };
+    error = r.error ?? z.prettifyError(parsed.error);
+  }
+  return { output: null, usage, costUsd: 0, error: `judge output invalid: ${error}` };
 }

@@ -1,0 +1,18 @@
+id: java-systemcore-wrong-jdk
+bug: "The student's JAVA_HOME points at Java 17, but SystemCore projects need Java 25"
+student:
+  persona: "sophomore, moved from the roboRIO to SystemCore this season, frustrated"
+  opening: "gradle build fails with 'error: invalid source release: 25' and i didn't change anything in build.gradle"
+  misconceptions: ["thinks build.gradle is broken and wants to change the 25 to 17"]
+  will_try: ["change VERSION_25 to VERSION_17 in build.gradle", "delete the .gradle folder"]
+  reveals_hypothesis_when: "asked, says 'i think the new template is broken'"
+  knows: "They installed Java 17 last year for the roboRIO and set JAVA_HOME to it."
+environment:
+  # The runner hides JDK 25 so the coach's resolver reproduces the student's machine.
+  hide_jdks: [25]
+expected:
+  root_cause: "SystemCore projects compile for Java 25; the build is running on Java 17 from JAVA_HOME"
+  files: ["build.gradle"]
+  level: L0
+  fix_check: null
+max_turns: 10

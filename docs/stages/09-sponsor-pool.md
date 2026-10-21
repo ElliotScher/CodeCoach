@@ -1,6 +1,8 @@
 # Stage 9: sponsor token pool
 
-> **Built last, and only if a sponsor commits.** The pool is fully separate from teams that use their own API keys or subscriptions: those teams never touch it, and nothing in stages 0a–8 depends on it. The client sees it as just another `ChatProvider`.
+> **Built last, and only if a sponsor commits.** The pool is fully separate from teams that use their own subscriptions: those teams never touch it, and nothing in stages 0a–8 depends on it. The client sees it as just another `ChatProvider`.
+>
+> **Spending amendment (2026-10-17).** The pool spends a sponsor's API credits through provider keys on the server, so it also needs the owner to lift the spending gate (PLAN.md, Decisions → Spending). It never spends the owner's money.
 
 ## 1. Goal
 A sponsor funds a pool of LLM credit for teams that can't pay for their own. It works like this:

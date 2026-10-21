@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "default": 1,
+      "type": "number",
+      "const": 1
+    },
+    "guardrailLevel": {
+      "default": "L0",
+      "description": "How much the coach may write: L0 Socratic (default) to L3 pair programmer.",
+      "type": "string",
+      "enum": [
+        "L0",
+        "L1",
+        "L2",
+        "L3"
+      ]
+    },
+    "providers": {
+      "default": {
+        "allowed": [
+          "anthropic"
+        ],
+        "models": {}
+      },
+      "type": "object",
+      "properties": {
+        "allowed": {
+          "default": [
+            "anthropic"
+          ],
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "anthropic",
+              "openai",
+              "google"
+            ]
+          }
+        },
+        "models": {
+          "default": {},
+          "description": "Model override per provider.",
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "monthlyBudgetUsd": {
+      "description": "Stop before a call once this month's spend reaches this.",
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "language": {
+      "default": "en",
+      "description": "Language the coach answers in (BCP 47).",
+      "type": "string"
+    },
+    "readingLevel": {
+      "default": "standard",
+      "type": "string",
+      "enum": [
+        "standard",
+        "simplified"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,18 @@
+id: java-roborio-default-command-bug
+bug: "Drivetrain has no default command; the robot doesn't drive with the sticks in teleop"
+smoke: true
+student:
+  persona: "sophomore, 3 months of Java, nervous, writes short lowercase messages"
+  opening: "the robot won't drive and i don't know why"
+  misconceptions: ["thinks the joystick or controller is broken"]
+  will_try: ["unplug and replug the controller", "add print statements in teleopPeriodic"]
+  reveals_hypothesis_when: "asked directly, guesses 'the controller port is wrong'"
+  knows: "Holding A makes the robot creep forward, which they found by accident."
+expected:
+  root_cause: "setDefaultCommand is never called for the drivetrain in RobotContainer, so nothing reads the sticks"
+  files: ["src/main/java/frc/robot/RobotContainer.java"]
+  level: L0
+  fix_check:
+    file: src/main/java/frc/robot/RobotContainer.java
+    pattern: "m_drivetrain\\s*\\.\\s*setDefaultCommand\\("
+max_turns: 12

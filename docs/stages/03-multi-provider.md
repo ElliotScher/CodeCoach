@@ -1,5 +1,7 @@
 # Stage 3: OpenAI and Google providers
 
+> **Deferred (spending amendment, 2026-10-17).** This stage builds API-key adapters, so it only happens if the owner lifts the spending gate after the feasibility checkpoint (PLAN.md, Decisions → Spending). Until then, OpenAI and Google reach CodeCoach through their subscription runtimes in [stage 6](06-subscription-adapters.md) (Codex app-server, Gemini CLI). The design below is kept for that case; if it's built, every adapter in it is off unless spending is opted in ([stage 1b §4.1](01b-subscription-transport.md)).
+
 ## 1. Goal
 Teams can coach with whichever provider they already have access to (through school, sponsor credits or a personal account) and get the **same coaching behavior** from all of them. The eval suite, not intuition, decides whether a provider and model is good enough to offer, and which small prompt adjustments it needs.
 

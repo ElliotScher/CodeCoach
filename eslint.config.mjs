@@ -8,7 +8,8 @@ import tseslint from "typescript-eslint";
 // Keep this in sync with the "dependencies" in each package.json.
 const ALLOWED_DEPS = {
   core: [],
-  providers: ["core"],
+  "mcp-server": ["core"],
+  providers: ["core", "mcp-server"],
   pedagogy: ["core"],
   frc: ["core"],
   ui: ["core"],
@@ -72,4 +73,22 @@ export default defineConfig(
     rules: { "no-restricted-imports": ["error", { patterns: [noDeepImports] }] },
   },
   ...boundaries,
+  {
+    // packages/ui runs in a browser; core's runtime uses Node built-ins.
+    files: ["packages/ui/**"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@codecoach/core",
+              message: "packages/ui runs in a browser: import core's types only (import type).",
+              allowTypeImports: true,
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

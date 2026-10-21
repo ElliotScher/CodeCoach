@@ -1,0 +1,35 @@
+
+> Configure project :
+Could not disable gradle cache cleanup. Run with --info for more information.
+
+> Task :compileJava FAILED
+Caught exception: Already watching path: /home/elliotscher/Documents/Development/FRC/CodeCoach/fixtures/java-roborio-hello
+/home/student/robot/src/main/java/frc/robot/RobotContainer.java:61: error: cannot find symbol
+    return Autos.exampleAuto(m_exampleSubsytem);
+                             ^
+  symbol:   variable m_exampleSubsytem
+  location: class RobotContainer
+1 error
+Compilation Error!
+GradleRIO detected this build failed due to a Compile Error (compileJava).
+Check that all your files are saved, then scroll up in this log for more information.
+[Incubating] Problems report is available at: file:///home/student/robot/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':compileJava'.
+> Compilation failed; see the compiler output below.
+  /home/student/robot/src/main/java/frc/robot/RobotContainer.java:61: error: cannot find symbol
+      return Autos.exampleAuto(m_exampleSubsytem);
+                               ^
+    symbol:   variable m_exampleSubsytem
+    location: class RobotContainer
+  1 error
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to get full insights.
+
+BUILD FAILED in 1s
+1 actionable task: 1 executed

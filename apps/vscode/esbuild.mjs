@@ -9,6 +9,8 @@ const shared = {
   sourcemap: true,
   // Bundle workspace packages from source so this doesn't depend on `tsc -b` output.
   conditions: ["@codecoach/source"],
+  // Prompt files are bundled as text.
+  loader: { ".md": "text" },
   logLevel: "warning",
 };
 

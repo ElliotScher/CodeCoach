@@ -1,5 +1,7 @@
 # Stage 7: desktop app
 
+> **Spending amendment (2026-10-17).** The desktop app uses the subscription transports that work outside VS Code (Codex app-server and Gemini CLI from stage 6; the owner's Claude Code transport from 1b for development). Copilot through `vscode.lm` is VS Code-only. API-key providers stay off unless the spending gate is lifted (PLAN.md, Decisions → Spending).
+
 ## 1. Goal
 A standalone CodeCoach app for students who don't use VS Code: IntelliJ, CLion and Vim users, or a laptop where the extension can't be installed. It opens a robot project folder and offers the same coach, tools, logs and sim as the extension, using the same core and UI. It installs per-user without admin rights, because school laptops often don't give students admin.
 

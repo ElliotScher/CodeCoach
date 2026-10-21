@@ -1,7 +1,9 @@
 # Stage 2: VS Code extension MVP
 
+> **Spending amendment (2026-10-17).** No API-key spending for the rest of the project unless the owner lifts the gate after the feasibility checkpoint (PLAN.md, Decisions → Spending). Development and evals run on the owner's Claude Pro/Max subscription through Claude Code ([stage 1b](01b-subscription-transport.md)). During development the extension's provider is the Claude Code transport from 1b (the owner plays the student). Student-facing providers come from stage 6, which now follows this stage directly; API-key setup stays hidden behind an experimental setting.
+
 ## 1. Goal
-Put the coach where students already are: inside WPILib VS Code. A student opens their robot project, picks a provider, pastes a key once, and gets a chat panel that knows their project. The panel can explain build errors from the Problems panel and coaches at the level their mentor or team lead set.
+Put the coach where students already are: inside WPILib VS Code. A student opens their robot project, picks a provider (a subscription they already have, signed in through the vendor's own runtime), and gets a chat panel that knows their project. The panel can explain build errors from the Problems panel and coaches at the level their mentor or team lead set.
 
 **Exit criteria (from PLAN.md):**
 - A student in WPILib VS Code fixes a planted build error and a planted logic bug with the coach.
@@ -17,7 +19,7 @@ apps/vscode/src/
   extension.ts              # activate: register views, commands, code actions
   chat-view.ts              # WebviewViewProvider, owns one AgentSession per chat
   protocol.ts               # typed (Zod) host⇄webview messages
-  secrets.ts                # SecretStorage wrapper per provider
+  secrets.ts                # SecretStorage wrapper per provider (API keys; hidden while the spending gate is closed)
   team-config.ts            # load/validate/watch .codecoach/config.json; mentor lock
   diagnostics.ts            # DiagnosticCollection for run_build results
   code-actions.ts           # "Explain this error with CodeCoach"
@@ -84,13 +86,13 @@ docs/user/getting-started.md   docs/user/for-mentors.md
 - **Changing the level** in the UI needs the passphrase.
 - **Teams without a mentor** (CodeCoach's main audience) can let a student lead hold the passphrase, or leave the lock off.
 - **Threat model.** This is honestly a deterrent, not security. The salt and signature are in the repo, so a determined student could brute-force a weak passphrase offline or delete the lock (which then shows up in git history). The docs say exactly this. Real enforcement exists only with the server-side pool (stage 9).
-- **Budget.** The monthly budget is tracked per machine (in `globalState`), not across the whole team. The docs explain that a provider-side spend limit (set in the provider console) is the real cap.
+- **Budget.** Applies only to API-key providers, which are off while the spending gate is closed. If they're ever enabled, the monthly budget is tracked per machine (in `globalState`), not across the whole team, and the docs explain that a provider-side spend limit (set in the provider console) is the real cap.
 
 ### 4.5 Chat panel UX
 - **Streaming.** Text streams in; tool activity shows as quiet one-line chips ("Reading RobotContainer.java", "Building with JDK 17…"). These can be expanded to show what the coach looked at, which teaches students where to look themselves.
 - **Phase badge** (Describe → Hypothesize → …). The student can click it to see "where we are in debugging". This makes the process visible and teachable.
 - **Quick replies:** "I tried it", "I'm stuck, give me a hint", "Just tell me" (escape hatch, after confirmation), and "I don't understand that word" (asks for a simpler explanation).
-- **Meter:** tokens and estimated cost this session, and the remaining monthly budget.
+- **Meter:** tokens and turns this session, plus any usage-limit messages from the subscription runtime. Dollars and the monthly budget appear only for API-key providers.
 - **Privacy banner** (always visible, collapsible): "Your messages and the files CodeCoach reads are sent to *Anthropic*. Nothing else leaves your computer."
 - **Markdown:** rendered with `markdown-it` with HTML disabled and a link allowlist (`https:` only; links open via `vscode.env.openExternal` after confirmation). Code is highlighted with `highlight.js` (Java, C++, Python, Gradle, JSON).
 - **Accessibility:**

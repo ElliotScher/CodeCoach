@@ -41,7 +41,7 @@ docs/pilot/
 
   Recruit through FIRST regional and district contacts and community channels. FRC 190's network can help, but 190 itself isn't a target team.
 - **Timing:** about 6 weeks, ideally spanning the run-up to build season and its first weeks, when real bugs happen.
-- **Access:** the project gives each team a provider key with a **provider-side spend cap** (provider workspace or project budgets), funded by sponsor credits. This is deliberately *not* the stage 9 pool: just capped keys.
+- **Access:** pilot teams use the stage 6 subscription adapters they're eligible for (Copilot through GitHub's education benefits first; a mentor's own ChatGPT or Gemini plan where the terms allow). No project-funded API keys while the spending gate is closed. If the owner lifts the gate, the earlier plan applies: each team gets a provider key with a **provider-side spend cap**, funded by sponsor credits (deliberately *not* the stage 9 pool).
 - **Consent and minors:**
   - written consent from the team lead or school;
   - parental consent for any student whose transcripts or survey answers are shared;

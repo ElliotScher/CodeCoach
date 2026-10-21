@@ -13,18 +13,16 @@ Any contributor on Linux, macOS or Windows can go from a fresh machine to a work
 - **Unblocks:** everything else. 0b needs the pinned toolchain to scaffold and build.
 
 ## 3. Deliverables
-| Path | Purpose | Status |
-|---|---|---|
-| `~/Documents/NixHub/dev/FRC/CodeCoach/flake.nix` (+ `flake.lock`) | Personal Nix dev shell (outside the repo) | **Done**: verified and committed in NixHub (`73be872`) |
-| `.node-version` | `22`, read by nvm, fnm, volta and `actions/setup-node` | |
-| `package.json` (root, private) | `packageManager: "pnpm@12.9.0"`, `engines.node: ">=22"`, root scripts | |
-| `pnpm-workspace.yaml` | Workspace globs (`packages/*`, `apps/*`, `services/*`) | |
-| `scripts/doctor.mjs` | Checks the toolchain and optional tools | |
-| `scripts/lib/jdk-probe.mjs` | Small standalone JDK finder used by doctor (stage 1's `packages/frc/src/jdk.ts` supersedes it and doctor then imports that) | |
-| `docs/dev-setup.md` | Manual install per OS, VS Code setup, troubleshooting | |
-| `README.md` | Rewritten as described in PLAN.md §7 | |
-| `.gitignore` | As described in PLAN.md §7 | |
-| `.vscode/extensions.json` | Recommended extensions (ESLint, Vitest, WPILib) | |
+- [x] `~/Documents/NixHub/dev/FRC/CodeCoach/flake.nix` (+ `flake.lock`): Personal Nix dev shell (outside the repo) (verified and committed in NixHub, `73be872`)
+- [x] `.node-version`: `22`, read by nvm, fnm, volta and `actions/setup-node`
+- [x] `package.json` (root, private): `packageManager: "pnpm@12.9.0"`, `engines.node: ">=22"`, root scripts
+- [x] `pnpm-workspace.yaml`: Workspace globs (`packages/*`, `apps/*`, `services/*`)
+- [x] `scripts/doctor.mjs`: Checks the toolchain and optional tools
+- [x] `scripts/lib/jdk-probe.mjs`: Small standalone JDK finder used by doctor (stage 1's `packages/frc/src/jdk.ts` supersedes it and doctor then imports that)
+- [x] `docs/dev-setup.md`: Manual install per OS, VS Code setup, troubleshooting
+- [x] `README.md`: Rewritten as described in PLAN.md §7
+- [x] `.gitignore`: As described in PLAN.md §7
+- [x] `.vscode/extensions.json`: Recommended extensions (ESLint, Vitest, WPILib)
 
 ## 4. Design detail
 

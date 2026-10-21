@@ -1,0 +1,8 @@
+{
+  "description": "teleopPeriodic is dedented to module level, so it's never called.",
+  "controller": "roborio",
+  "language": "python",
+  "jdk": null,
+  "robotpy": "2026.2.2",
+  "experimental": false
+}

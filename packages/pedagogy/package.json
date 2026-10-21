@@ -16,6 +16,7 @@
     "dist"
   ],
   "dependencies": {
-    "@codecoach/core": "workspace:*"
+    "@codecoach/core": "workspace:*",
+    "zod": "4.6.7"
   }
 }

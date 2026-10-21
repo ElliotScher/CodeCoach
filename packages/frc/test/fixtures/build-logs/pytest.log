@@ -1,0 +1,14 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________________________ test_speed_is_clamped _____________________________
+
+    def test_speed_is_clamped():
+>       assert min(1.5, 1.0) == 1.5, "speed should be clamped to 1.0"
+E       AssertionError: speed should be clamped to 1.0
+E       assert 1.0 == 1.5
+E        +  where 1.0 = min(1.5, 1.0)
+
+tests/test_drive.py:5: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_drive.py::test_speed_is_clamped - AssertionError: speed sho...
+1 failed in 0.12s

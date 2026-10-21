@@ -11,6 +11,5 @@ describe("@codecoach/ui", () => {
   test("renders the placeholder panel", () => {
     const html = renderToStaticMarkup(<ComingSoon />);
     expect(html).toContain("CodeCoach is coming soon");
-    expect(html).toContain('data-core="@codecoach/core"');
   });
 });

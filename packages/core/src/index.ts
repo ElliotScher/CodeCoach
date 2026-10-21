@@ -1,4 +1,17 @@
-// Placeholder until stage 1 fills this package in.
+export * from "./agent.js";
+export * from "./budget.js";
+export * from "./config.js";
+export * from "./glob.js";
+export * from "./guard.js";
+export * from "./paths.js";
+export * from "./provider.js";
+export * from "./runtime.js";
+export * from "./runtime-agent.js";
+export * from "./session-store.js";
+export * from "./testing/mock-provider.js";
+export * from "./testing/mock-runtime.js";
+export * from "./tools/registry.js";
+export * from "./types.js";
+export * from "./workspace.js";
 
 export const PACKAGE_NAME = "@codecoach/core";
-export const DEPENDS_ON: readonly string[] = [];

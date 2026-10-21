@@ -136,7 +136,7 @@ Verified on CI: each installed JDK gets `JAVA_HOME_<major>_<arch>`: `_X64` on x6
 
 **PR 4: CI**
 - [x] M: `ci.yml` on 3 OSes (includes 0a's doctor job); `fixtures.yml` with Gradle caching. Green on all three OSes
-- [ ] S: branch protection: `checks` required
+- [x] S: branch protection: `checks (ubuntu|windows|macos-latest)` required via the `main` ruleset
 
 ## 6. Testing and verification
 - Locally in the Nix shell: `pnpm build && pnpm test && pnpm test:vscode` pass. `pnpm fixtures build java-roborio-hello` uses JDK 17, and `… java-systemcore-hello` uses JDK 25 (the script prints the chosen JDK).

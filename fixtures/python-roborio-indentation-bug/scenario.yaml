@@ -1,0 +1,18 @@
+id: python-roborio-indentation-bug
+bug: "teleopPeriodic is indented at module level instead of inside MyRobot, so TimedRobot never calls it"
+smoke: true
+student:
+  persona: "freshman, first programming language is Python from a summer camp, quiet"
+  opening: "robot doesn't move in teleop. no errors at all. autonomous works fine i think"
+  misconceptions: ["thinks the motor controllers are unplugged"]
+  will_try: ["check the PWM cables", "print something in robotInit"]
+  reveals_hypothesis_when: "asked, guesses 'the motors aren't plugged in right'"
+  knows: "A print they put in robotInit shows up, but one in teleopPeriodic never does."
+expected:
+  root_cause: "teleopPeriodic is defined at module level (not indented inside MyRobot), so it isn't a method and TimedRobot never calls it"
+  files: ["robot.py"]
+  level: L0
+  fix_check:
+    file: robot.py
+    pattern: "^    def teleopPeriodic\\("
+max_turns: 12

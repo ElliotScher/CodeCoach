@@ -8,5 +8,5 @@
     // Resolve workspace packages to their src/ so tests typecheck without a build.
     "customConditions": ["@codecoach/source"]
   },
-  "include": ["packages/*/test", "apps/*/test", "*.config.ts"]
+  "include": ["packages/*/test", "packages/*/scripts/*.ts", "apps/*/test", "*.config.ts"]
 }

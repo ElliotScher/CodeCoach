@@ -1,0 +1,12 @@
+src/main/cpp/Robot.cpp:5:8: error: ‘void Robot::TeleopPeriodc()’ marked ‘override’, but does not override
+    5 |   void TeleopPeriodc() override;
+      |        ^~~~~~~~~~~~~
+src/main/cpp/Robot.cpp:7:17: error: invalid conversion from ‘const char*’ to ‘int’ [-fpermissive]
+    7 |   int m_speed = "fast";
+      |                 ^~~~~~
+      |                 |
+      |                 const char*
+src/main/cpp/Robot.cpp: In member function ‘void Robot::TeleopPeriodc()’:
+src/main/cpp/Robot.cpp:9:31: error: ‘undefinedCall’ was not declared in this scope
+    9 | void Robot::TeleopPeriodc() { undefinedCall(); }
+      |                               ^~~~~~~~~~~~~

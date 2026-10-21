@@ -75,19 +75,17 @@ pnpm build && pnpm test
 
 The full plan is in [docs/PLAN.md](docs/PLAN.md), with per-stage detail in [docs/stages/](docs/stages/README.md).
 
-| Stage | What | Status |
-|---|---|---|
-| 0a | Dev environment: toolchain pins, `pnpm run doctor`, docs | Done |
-| 0b | Workspace scaffolding and CI | Done |
-| 1 | Core agent, pedagogy v1, CLI, evals | In progress |
-| 2 | VS Code extension MVP | Not started |
-| 3 | OpenAI and Google providers | Not started |
-| 4 | Logs, simulation and NetworkTables | Not started |
-| 5 | Docs index, FRC lints, deeper C++/RobotPy | Not started |
-| 6 | Subscription adapters | Not started |
-| 7 | Desktop app | Not started |
-| 8 | Pilot, translations and onboarding | Not started |
-| 9 | Sponsor token pool (optional) | Not started |
+- [x] **0a**: Dev environment: toolchain pins, `pnpm run doctor`, docs
+- [x] **0b**: Workspace scaffolding and CI
+- [ ] **1**: Core agent, pedagogy v1, CLI, evals (in progress)
+- [ ] **2**: VS Code extension MVP
+- [ ] **3**: OpenAI and Google providers
+- [ ] **4**: Logs, simulation and NetworkTables
+- [ ] **5**: Docs index, FRC lints, deeper C++/RobotPy
+- [ ] **6**: Subscription adapters
+- [ ] **7**: Desktop app
+- [ ] **8**: Pilot, translations and onboarding
+- [ ] **9**: Sponsor token pool (optional)
 
 ## License
 

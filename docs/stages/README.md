@@ -8,20 +8,18 @@ Task sizes: **S** ≈ under half a day, **M** ≈ 1–3 days, **L** ≈ a week o
 
 ## Stages
 
-| # | Stage | Doc | Status |
-|---|---|---|---|
-| 0a | Dev environment | [00a-dev-environment.md](00a-dev-environment.md) | Done |
-| 0b | Scaffolding and CI | [00b-scaffolding-ci.md](00b-scaffolding-ci.md) | Done |
-| 1 | Core agent, pedagogy v1, CLI, evals v1 | [01-core-and-pedagogy.md](01-core-and-pedagogy.md) | Built and tested offline; live criteria move to 1b |
-| 1b | Subscription transport (Claude Code, development-only) and spending gate | [01b-subscription-transport.md](01b-subscription-transport.md) | Built and verified live; waiting on the eval baseline and judge calibration |
-| 2 | VS Code extension MVP | [02-vscode-extension.md](02-vscode-extension.md) | Not started |
-| 3 | OpenAI and Google API-key providers | [03-multi-provider.md](03-multi-provider.md) | Deferred (only if the spending gate is lifted) |
-| 4 | Logs, simulation and NetworkTables | [04-logs-sim-nt.md](04-logs-sim-nt.md) | Not started |
-| 5 | Docs index, FRC lints, C++/RobotPy depth | [05-docs-index-and-lints.md](05-docs-index-and-lints.md) | Not started |
-| 6 | Student-facing subscription adapters (comes right after 2) | [06-subscription-adapters.md](06-subscription-adapters.md) | Not started |
-| 7 | Desktop app | [07-desktop-app.md](07-desktop-app.md) | Not started |
-| 8 | Pilot, i18n and onboarding | [08-pilot-and-i18n.md](08-pilot-and-i18n.md) | Not started |
-| 9 | Sponsor token pool | [09-sponsor-pool.md](09-sponsor-pool.md) | Not started (only if a sponsor materializes and the spending gate is lifted) |
+- [x] **0a** [Dev environment](00a-dev-environment.md)
+- [x] **0b** [Scaffolding and CI](00b-scaffolding-ci.md)
+- [ ] **1** [Core agent, pedagogy v1, CLI, evals v1](01-core-and-pedagogy.md): built and tested offline; live criteria move to 1b
+- [ ] **1b** [Subscription transport (Claude Code, development-only) and spending gate](01b-subscription-transport.md): built and verified live; waiting on the eval baseline and judge calibration
+- [ ] **2** [VS Code extension MVP](02-vscode-extension.md)
+- [ ] **3** [OpenAI and Google API-key providers](03-multi-provider.md): deferred (only if the spending gate is lifted)
+- [ ] **4** [Logs, simulation and NetworkTables](04-logs-sim-nt.md)
+- [ ] **5** [Docs index, FRC lints, C++/RobotPy depth](05-docs-index-and-lints.md)
+- [ ] **6** [Student-facing subscription adapters](06-subscription-adapters.md) (comes right after 2)
+- [ ] **7** [Desktop app](07-desktop-app.md)
+- [ ] **8** [Pilot, i18n and onboarding](08-pilot-and-i18n.md)
+- [ ] **9** [Sponsor token pool](09-sponsor-pool.md): only if a sponsor materializes and the spending gate is lifted
 
 ## Spending policy
 No API-key spending for the rest of the project unless the owner lifts the gate after the feasibility checkpoint (stages 1–2 exit criteria met). See PLAN.md, Decisions → Spending. Development and evals run on the owner's Claude Pro/Max subscription through Claude Code (1b); students use subscription runtimes (6).
